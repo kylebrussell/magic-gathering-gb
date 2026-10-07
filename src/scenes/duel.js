@@ -747,6 +747,7 @@ export class DuelScene {
     if (!s) return '';
     const g = this.g;
     if (s.kind === 'player') return `${this.pname(s.p)} (${g.players[s.p].life})`;
+    if (s.kind === 'grave') return `GRAVEYARD (${g.players[s.p].graveyard.length})`;
     const d = E.def(g, s.iid);
     let n = d.name.toUpperCase();
     if (E.isCreature(g, s.iid) && g.cards[s.iid].zone === 'battlefield') {
@@ -757,7 +758,7 @@ export class DuelScene {
   }
 
   slotArt(s) {
-    if (!s) return null;
+    if (!s || s.kind === 'grave') return null;
     if (s.kind === 'player') return { portrait: s.p === this.human ? this.opts.player.portrait : this.opts.opponent.portrait };
     return { art: cardArt(E.def(this.g, s.iid)) };
   }
@@ -771,17 +772,18 @@ export class DuelScene {
 
   async battlefieldMenu() {
     const g = this.g;
-    const slots = layoutBoard(g, this.snap, this.human).filter((s) => s.kind === 'perm');
-    if (!slots.length) {
-      await this.say('THE BATTLEFIELD IS EMPTY.', { hold: 30 });
-      return null;
-    }
-    const mine = slots.filter((s) => s.p === this.human);
+    const slots = layoutBoard(g, this.snap, this.human).filter((s) => s.kind === 'perm' || s.kind === 'grave');
+    const mine = slots.filter((s) => s.p === this.human && s.kind === 'perm');
     return this.boardCursor({
       candidates: slots,
       start: mine[0],
       prompt: 'BATTLEFIELD',
       onPick: async (slot) => {
+        if (slot.kind === 'grave') {
+          const items = [...g.players[slot.p].graveyard].reverse().map((iid) => ({ def: E.def(g, iid) }));
+          await this.app.run(new CardList({ title: `${this.pname(slot.p)}'S GRAVEYARD`, items, prompt: 'GRAVEYARD', emptyText: 'NO CARDS YET.' }));
+          return undefined;
+        }
         const abilities = E.abilityList(g, slot.iid)
           .map((ab, index) => ({ ab, index }))
           .filter(({ index }) => slot.p === this.human && E.canActivate(g, this.human, slot.iid, index));
@@ -1206,7 +1208,6 @@ export class DuelScene {
 
   drawDice(ctx, app) {
     const v = this.versus || {};
-    const first = this.g.first;
     const pp = this.opts.player.portrait;
     const op = this.opts.opponent.portrait;
     const dimHuman = v.dim === this.human && !v.blink;
@@ -1220,7 +1221,6 @@ export class DuelScene {
       ctx.drawImage(die(v.dice[this.human]), 60, 42);
       ctx.drawImage(die(v.dice[1 - this.human]), 86, 42);
     }
-    void first;
   }
 
   drawBattle(ctx, app) {

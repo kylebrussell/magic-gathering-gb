@@ -52,6 +52,8 @@ export function layoutBoard(g, snap, human) {
     });
     // player (life die) slot
     slots.push({ kind: 'player', p, x: 72, y: bottom ? 79 : 1, w: 16, h: 16 });
+    // graveyard icon (browsable from the battlefield menu)
+    slots.push({ kind: 'grave', p, x: bottom ? 122 : 2, y: bottom ? 72 : 14, w: 8, h: 9 });
   }
   return slots;
 }
