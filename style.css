@@ -1,0 +1,83 @@
+:root {
+  --shell: #5b3c8c;
+  --shell-light: #7653ad;
+  --shell-dark: #3b2460;
+  --bezel: #2e2e3a;
+  --page: #1d1b26;
+  --text: #cfc8e0;
+  --btn: #2a2232;
+  --btn-ab: #b0204c;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: radial-gradient(ellipse at top, #2c2840 0%, var(--page) 70%);
+  color: var(--text);
+  font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+#device {
+  --scale: 3;
+  background: linear-gradient(160deg, var(--shell-light), var(--shell) 40%, var(--shell-dark));
+  border-radius: 18px 18px 64px 18px;
+  padding: 18px 18px 26px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.55), inset 0 2px 0 rgba(255,255,255,.25), inset 0 -4px 0 rgba(0,0,0,.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#bezel {
+  background: var(--bezel);
+  border-radius: 10px 10px 36px 10px;
+  padding: 14px 34px 10px;
+  position: relative;
+  box-shadow: inset 0 0 0 2px #1d1d26;
+}
+#power { position: absolute; left: 6px; top: 42%; font-size: 7px; color: #8a8aa0; writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: 1px; display: flex; align-items: center; gap: 4px; }
+#led { width: 7px; height: 7px; border-radius: 50%; background: #ff3a3a; box-shadow: 0 0 6px #ff3a3a; }
+canvas#screen {
+  display: block;
+  width: calc(160px * var(--scale));
+  height: calc(144px * var(--scale));
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #e0d8b8;
+  outline: none;
+}
+#brand { text-align: center; margin-top: 7px; color: #c8c4d8; font: italic bold 12px/1 Arial, Helvetica, sans-serif; letter-spacing: 1px; }
+#brand b i:nth-child(1) { color: #ff4060; } #brand b i:nth-child(2) { color: #ffc040; }
+#brand b i:nth-child(3) { color: #40d080; } #brand b i:nth-child(4) { color: #40a0ff; } #brand b i:nth-child(5) { color: #c070ff; }
+#controls { width: 100%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; margin-top: 18px; gap: 10px 0; }
+button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#dpad { display: grid; grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(3, 34px); margin-left: 10px; filter: drop-shadow(0 3px 0 rgba(0,0,0,.35)); }
+#dpad .d { background: var(--btn); border: 0; padding: 0; }
+#dpad .up { grid-area: 1 / 2; border-radius: 5px 5px 0 0; }
+#dpad .left { grid-area: 2 / 1; border-radius: 5px 0 0 5px; }
+#dpad .mid { grid-area: 2 / 2; background: var(--btn); }
+#dpad .right { grid-area: 2 / 3; border-radius: 0 5px 5px 0; }
+#dpad .down { grid-area: 3 / 2; border-radius: 0 0 5px 5px; }
+#dpad .d.on, #dpad .d:active { background: #15111a; }
+#ab { display: flex; gap: 16px; justify-content: flex-end; align-items: center; transform: rotate(-22deg); margin-right: 6px; }
+#ab .ab:nth-child(2) { margin-top: -26px; }
+#ab button { width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--btn-ab); color: #ffd0e0; font-weight: bold; font-size: 15px; box-shadow: 0 4px 0 #70102c; }
+#ab button.on, #ab button:active { transform: translateY(3px); box-shadow: 0 1px 0 #70102c; }
+#ss { grid-column: 1 / 3; display: flex; justify-content: center; gap: 22px; }
+#ss div { display: flex; flex-direction: column; align-items: center; gap: 3px; transform: rotate(-22deg); }
+#ss button { width: 46px; height: 12px; border-radius: 7px; border: 0; background: #3c3346; box-shadow: 0 2px 0 #201a28; }
+#ss button.on { background: #221c2a; }
+#ss span { font: bold 8px Arial, sans-serif; color: #2a1e40; letter-spacing: 1px; }
+#help { margin: 14px 0 0; font-size: 11px; color: #8d86a6; text-align: center; padding: 0 12px; }
+#help b { color: #d7cff0; }
+@media (hover: none) and (pointer: coarse) { #help { display: none; } }
+@media (max-width: 560px) {
+  #device { border-radius: 0; padding: 10px 8px 16px; width: 100vw; min-height: 100vh; justify-content: flex-start; }
+  #bezel { padding: 10px 10px 8px; border-radius: 8px 8px 28px 8px; }
+  #power { display: none; }
+}

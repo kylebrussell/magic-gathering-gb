@@ -548,7 +548,7 @@ export const CARDS = {
   }),
   birds_of_paradise: C('Birds of Paradise', 'G', 'Bird', 0, 1, {
     set: 'LEA', rarity: 'R', kw: ['flying'], mana: { colors: 'any' }, text: 'Flying. {T}: Add one mana of any color.',
-    art: { scene: 'paradise', subj: 'bird' },
+    art: { scene: 'paradise', subj: 'bird', pal: 'sky' },
   }),
   scryb_sprites: C('Scryb Sprites', 'G', 'Faerie', 1, 1, { set: 'LEA', rarity: 'C', kw: ['flying'], text: 'Flying.', art: { scene: 'wood', subj: 'faerie' } }),
   shanodin_dryads: C('Shanodin Dryads', 'G', 'Nymph Dryad', 1, 1, { set: 'LEA', rarity: 'C', kw: ['forestwalk'], text: 'Forestwalk.', art: { scene: 'forest', subj: 'dryad' } }),

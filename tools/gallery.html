@@ -1,0 +1,29 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Art gallery</title>
+<style>body{background:#333;margin:0;color:#ccc;font:10px monospace} canvas{image-rendering:pixelated}</style></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+import { CARDS } from '../src/data/cards.js';
+import { cardArt } from '../src/gfx/art.js';
+import { portrait, PORTRAITS } from '../src/gfx/portraits.js';
+import { drawText } from '../src/gfx/font.js';
+const params = new URLSearchParams(location.search);
+const page = Number(params.get('page') || 0);
+const scale = Number(params.get('scale') || 2);
+const ids = Object.keys(CARDS);
+const per = 40, cols = 8;
+const list = params.get('portraits') ? Object.keys(PORTRAITS) : ids.slice(page * per, page * per + per);
+const cw = 68, ch = 60;
+const c = document.getElementById('c');
+c.width = cols * cw; c.height = Math.ceil(list.length / cols) * ch;
+c.style.width = c.width * scale + 'px';
+const x = c.getContext('2d');
+x.fillStyle = '#e0d8b8'; x.fillRect(0, 0, c.width, c.height);
+list.forEach((id, i) => {
+  const px = (i % cols) * cw + 2, py = Math.floor(i / cols) * ch + 2;
+  const img = params.get('portraits') ? portrait(id) : cardArt(CARDS[id]);
+  x.drawImage(img, px, py);
+  drawText(x, (params.get('portraits') ? id : CARDS[id].name).slice(0, 16), px, py + 49, '#000');
+});
+document.title = 'done';
+</script></body></html>

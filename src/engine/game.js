@@ -34,7 +34,29 @@ export const isMain = (step) => step === 'main1' || step === 'main2';
 const STEP_ORDER = ['untap', 'upkeep', 'draw', 'main1', 'attackers', 'blockers', 'damage', 'main2', 'end', 'cleanup'];
 export const HAND_SIZE = 7;
 
+// When g.record is set (the UI's game), every event carries a compact board
+// snapshot so the presentation layer can show the board as it was at that
+// moment while narrating events one by one.
+export function snapshot(g) {
+  const count = (zone) => g.players.map((pl) => pl[zone].length);
+  return {
+    bf: g.battlefield.map((iid) => {
+      const c = g.cards[iid];
+      return [iid, c.controller, c.tapped ? 1 : 0, c.attachedTo];
+    }),
+    life: g.players.map((pl) => pl.life),
+    hand: count('hand'),
+    lib: count('library'),
+    gy: count('graveyard'),
+    ex: count('exile'),
+    combat: g.combat ? { attackers: [...g.combat.attackers], blocks: g.combat.blocks.map((b) => [...b]) } : null,
+    step: g.step,
+    active: g.active,
+  };
+}
+
 function log(g, ev) {
+  if (g.record) ev.snap = snapshot(g);
   g.log.push(ev);
 }
 
@@ -1326,6 +1348,7 @@ export function clone(g) {
   g.log = [];
   const c = structuredClone(g);
   g.log = log_;
+  c.record = false;
   return c;
 }
 

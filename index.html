@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Magic: The Gathering GB</title>
+<meta name="description" content="A Game Boy-style Magic: The Gathering adventure in the spirit of Pokémon Trading Card Game.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="device" aria-label="Handheld console">
+  <div id="bezel">
+    <div id="power"><span id="led"></span>POWER</div>
+    <canvas id="screen" width="160" height="144" aria-label="Game screen"></canvas>
+    <div id="brand">MANA&nbsp;BOY <b><i>C</i><i>O</i><i>L</i><i>O</i><i>R</i></b></div>
+  </div>
+  <div id="controls">
+    <div id="dpad" aria-label="Direction pad">
+      <button data-b="up" class="d up" aria-label="Up"></button>
+      <button data-b="left" class="d left" aria-label="Left"></button>
+      <span class="d mid"></span>
+      <button data-b="right" class="d right" aria-label="Right"></button>
+      <button data-b="down" class="d down" aria-label="Down"></button>
+    </div>
+    <div id="ab">
+      <div class="ab"><button data-b="b" aria-label="B button">B</button></div>
+      <div class="ab"><button data-b="a" aria-label="A button">A</button></div>
+    </div>
+    <div id="ss">
+      <div><button data-b="select" aria-label="Select"></button><span>SELECT</span></div>
+      <div><button data-b="start" aria-label="Start"></button><span>START</span></div>
+    </div>
+  </div>
+</main>
+<p id="help">Arrows / WASD: move &nbsp;·&nbsp; Z or Space: <b>A</b> &nbsp;·&nbsp; X or Esc: <b>B</b> &nbsp;·&nbsp; Enter: <b>START</b> &nbsp;·&nbsp; Shift: <b>SELECT</b></p>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
