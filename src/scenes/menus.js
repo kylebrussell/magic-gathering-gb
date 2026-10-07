@@ -76,6 +76,51 @@ export class StatusScene {
 }
 
 // ---------------------------------------------------------------------------
+// How to play
+
+const HELP_PAGES = [
+  ['CONTROLS', 'D-PAD  MOVE AND CHOOSE', 'A      OK, TALK, CAST', 'B      BACK, CANCEL', 'START  MENU', 'SELECT CARD INFO', '', 'KEYBOARD: ARROWS, Z=A,', 'X=B, ENTER=START,', 'SHIFT=SELECT'],
+  ['THE GOAL', 'EACH PLAYER STARTS WITH', '20 LIFE. BRING YOUR', "OPPONENT'S LIFE TO 0 TO", 'WIN THE DUEL.', '', 'IF YOU MUST DRAW FROM AN', 'EMPTY LIBRARY, YOU LOSE.'],
+  ['YOUR TURN', 'BEGINNING: UNTAP, DRAW', 'MAIN 1: PLAY A LAND AND', '  CAST SPELLS', 'COMBAT: ATTACK WITH', '  YOUR CREATURES', 'MAIN 2: CAST MORE SPELLS', 'END: DISCARD DOWN TO 7'],
+  ['MANA', 'LANDS TAP FOR MANA OF', 'THEIR COLOR: {W}{U}{B}{R}{G}.', 'A COST LIKE {2}{R} NEEDS', 'ONE RED AND TWO MORE OF', 'ANY KIND. YOUR LANDS ARE', 'TAPPED FOR YOU WHEN YOU', 'CAST. ONE LAND PER TURN.'],
+  ['CREATURES', 'PT 2/3 = POWER 2,', 'TOUGHNESS 3. DAMAGE EQUAL', 'TO TOUGHNESS DESTROYS IT.', 'NEW CREATURES CAN\'T', 'ATTACK RIGHT AWAY.', 'UNTAPPED CREATURES CAN', 'BLOCK ATTACKERS.'],
+  ['KEYWORDS', 'FLY: ONLY FLYERS OR REACH', '  CAN BLOCK IT', '1ST: FIRST STRIKE', 'TRM: TRAMPLE', 'HST: HASTE', 'VIG: VIGILANCE', 'DEF: DEFENDER, CAN\'T ATTACK'],
+  ['SPELLS', 'SORCERIES: ONLY IN YOUR', '  MAIN PHASE.', 'INSTANTS: ANY TIME YOU', '  CAN RESPOND.', 'ENCHANTMENTS, ARTIFACTS', 'AND CREATURES STAY ON', 'THE BATTLEFIELD.'],
+  ['DECKS', 'A DECK IS EXACTLY 60', 'CARDS. NO MORE THAN 4', 'COPIES OF A CARD. BASIC', 'LANDS ARE FREE.', 'WIN DUELS FOR BOOSTER', 'PACKS AND BUILD BETTER', 'DECKS FROM THE MENU.'],
+];
+
+export class HelpScene {
+  constructor() {
+    this.page = 0;
+  }
+  async run(app) {
+    for (;;) {
+      const b = await app.press(['left', 'right', 'a', 'b', 'start']);
+      if (b === 'left' && this.page > 0) {
+        this.page--;
+        sfx('cursor');
+      } else if ((b === 'right' || b === 'a') && this.page < HELP_PAGES.length - 1) {
+        this.page++;
+        sfx('cursor');
+      } else if (b === 'b' || b === 'start' || b === 'a') {
+        sfx('back');
+        return;
+      }
+    }
+  }
+  draw(ctx) {
+    fill(ctx, C.bg);
+    frame(ctx, 0, 0, 160, 144);
+    const [title, ...lines] = HELP_PAGES[this.page];
+    drawText(ctx, title, 10, 10, C.orange);
+    drawTextRight(ctx, `${this.page + 1}/${HELP_PAGES.length}`, 150, 10, C.greyDark);
+    lines.forEach((l, i) => drawText(ctx, l, 10, 26 + i * 12, C.ink));
+    if (this.page > 0) ctx.drawImage(icon('arrowLeft'), 4, 130);
+    if (this.page < HELP_PAGES.length - 1) ctx.drawImage(icon('arrowRight'), 153, 130);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Options
 
 export class OptionsScene {

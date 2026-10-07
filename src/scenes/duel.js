@@ -27,6 +27,31 @@ const PHASES = [
 
 const EFFECT_EVENTS = new Set(['damage', 'destroy', 'dies', 'mod', 'life', 'bounce', 'exile', 'countered', 'regenerate', 'prevent', 'regenShield', 'preventShield', 'tap', 'control', 'draw', 'discard', 'mill', 'counter', 'zone', 'tutor', 'mana', 'extraTurn', 'sacrifice', 'emptyDraw', 'tapMana']);
 
+// Dev/test hook: "hand:fireball,counterspell;bf:mountain*5,prodigal_sorcerer;opp:grizzly_bears"
+// puts cards straight into the human's hand / battlefield or the opponent's battlefield.
+function applySetup(g, setup) {
+  const make = (p, id, zone) => {
+    const iid = g.nextId++;
+    g.cards[iid] = { iid, id, owner: p, controller: p, zone: 'library', tapped: false, sick: false, damage: 0, counters: 0, mods: [], attachedTo: null, regen: 0, prevent: 0, damagedBy: [], controlSource: null, activations: 0, noRegen: false };
+    g.players[p].library.push(iid);
+    E.moveCard(g, iid, zone, { controller: p });
+    g.cards[iid].sick = false;
+  };
+  for (const part of setup.split(';')) {
+    const [where, list] = part.split(':');
+    for (const item of (list || '').split(',').filter(Boolean)) {
+      const [id, n = 1] = item.split('*');
+      for (let i = 0; i < Number(n); i++) {
+        if (where === 'hand') make(0, id, 'hand');
+        if (where === 'bf') make(0, id, 'battlefield');
+        if (where === 'opp') make(1, id, 'battlefield');
+        if (where === 'opphand') make(1, id, 'hand');
+      }
+    }
+  }
+  g.log = g.log.filter((e) => e.t !== 'zone');
+}
+
 export class DuelScene {
   constructor(opts) {
     this.manualFade = true;
@@ -57,12 +82,14 @@ export class DuelScene {
     this.box.speed = this.opts.textSpeed || 2;
     this.game = E.newGame({
       seed: seed ?? (Math.random() * 2 ** 32) >>> 0,
+      first: this.opts.first ?? null,
       players: [
         { name: player.name, deck: player.deck },
         { name: opponent.name, deck: opponent.deck },
       ],
     });
     this.game.record = true;
+    if (this.opts.setup) applySetup(this.game, this.opts.setup);
     this.snap = E.snapshot(this.game);
     // hide the opening hands until the draw animation
     this.introCounts = { hand: [0, 0], lib: [player.deck.length, opponent.deck.length] };
@@ -526,10 +553,29 @@ export class DuelScene {
     return g.step === 'attackers' || g.step === 'blockers' || g.step === 'end';
   }
 
+  // One-time tips for the tutorial duel.
+  async tip(key, text) {
+    if (!this.opts.tutorial) return;
+    this.tipsShown = this.tipsShown || new Set();
+    if (this.tipsShown.has(key)) return;
+    this.tipsShown.add(key);
+    this.box.label = 'TIP';
+    await this.box.say(text, { wait: true });
+    this.box.label = null;
+    this.box.clear();
+  }
+
   async humanDecision(pend) {
     const g = this.g;
     this.mode = 'board';
     if (this.opts.autoHuman || globalThis.MTG_AUTO) return decide(g, { skill: 1 });
+    if (pend.type === 'priority' && g.active === this.human && E.isMain(g.step) && g.stack.length === 0) {
+      await this.tip('main', 'CHOOSE HAND TO SEE YOUR CARDS. YOU MAY PLAY ONE LAND EACH TURN. LANDS MAKE MANA, AND MANA PAYS FOR SPELLS. YOUR LANDS ARE TAPPED AUTOMATICALLY WHEN YOU CAST.');
+      if (E.creaturesOf(g, this.human).length) await this.tip('battlefield', 'CHOOSE BATTLEFIELD TO LOOK AT EVERY CARD IN PLAY. MOVE THE CURSOR AND PRESS A TO CHECK A CARD.');
+    }
+    if (pend.type === 'attackers') await this.tip('attack', 'COMBAT! CHOOSE DECLARE ATT., PICK YOUR ATTACKERS WITH A, THEN PRESS B. CREATURES CAN\'T ATTACK ON THE TURN THEY ARRIVE UNLESS THEY HAVE HASTE.');
+    if (pend.type === 'blockers') await this.tip('block', 'YOU ARE BEING ATTACKED! PICK ONE OF YOUR UNTAPPED CREATURES, CHOOSE BLOCK, THEN THE ATTACKER TO STOP. UNBLOCKED ATTACKERS HIT YOUR LIFE.');
+    if (pend.type === 'priority' && this.shouldStop(pend) && !(g.active === this.human && E.isMain(g.step))) await this.tip('respond', 'YOU HAVE AN INSTANT OR ABILITY YOU CAN USE RIGHT NOW. CHOOSE HAND TO CAST IT, OR PASS TO LET THINGS HAPPEN.');
     switch (pend.type) {
       case 'mulligan':
         return this.mulliganMenu();
@@ -734,7 +780,7 @@ export class DuelScene {
           .filter(({ index }) => slot.p === this.human && E.canActivate(g, this.human, slot.iid, index));
         const opts = ['CHECK', 'BACK'];
         if (slot.p === this.human && E.abilityList(g, slot.iid).length) opts.push({ label: 'USE', disabled: !abilities.length });
-        const i = await this.box.choose(opts, { cols: 2, colWidth: 38 });
+        const i = await this.box.choose(opts, { cols: 2, colWidth: 38, start: abilities.length ? 2 : 0 });
         if (i === 0) {
           await this.app.run(new CardDetail([this.liveCard(slot.iid)]));
         } else if (i === 2) {
@@ -784,7 +830,11 @@ export class DuelScene {
     let x = 0;
     if (parseCost(d.cost).X) {
       const max = E.maxX(g, this.human, d.cost);
-      x = await this.chooseX(max);
+      // suggest just enough to kill a targeted creature
+      const t = targets[0];
+      let start = max;
+      if (t && t.c !== undefined && E.isCreature(g, t.c)) start = Math.max(1, Math.min(max, E.toughness(g, t.c) - g.cards[t.c].damage));
+      x = await this.chooseX(max, start);
       if (!x) return null;
     }
     let pick;
@@ -847,10 +897,10 @@ export class DuelScene {
     });
   }
 
-  async chooseX(max) {
+  async chooseX(max, start = max) {
     const app = this.app;
     if (max < 1) return 0;
-    let x = max;
+    let x = start;
     this.box.mode = 'custom';
     this.box.custom = (ctx, bx, by) => {
       drawText(ctx, 'CHOOSE X:', bx + 8, by + 12, C.ink);

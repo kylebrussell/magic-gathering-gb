@@ -50,12 +50,15 @@ async function quickDuel() {
   const all = { ...STARTERS, ...DECKS };
   const mine = all[params.get('deck') || 'mountain_rage'];
   const theirs = all[params.get('duel')] || DECKS.mana_ramp;
+  const first = params.has('first') ? Number(params.get('first')) : undefined;
   for (;;) {
     await app.run(
       new DuelScene({
         seed: params.get('seed') ? Number(params.get('seed')) : undefined,
         skipIntro: params.has('fast'),
         autoHuman: params.has('auto'),
+        setup: params.get('setup') || null,
+        first,
         textSpeed: params.has('auto') ? 99 : 2,
         player: { name: 'Adventurer', portrait: 'adventurer', deck: expandDeck(mine.cards) },
         opponent: { name: 'Nissa', fullName: 'Nissa Revane', portrait: 'nissa', deckName: theirs.name, deck: expandDeck(theirs.cards), skill: 0.9 },

@@ -4,7 +4,7 @@
 import { TitleScene } from './scenes/title.js';
 import { MapScene, RoomScene } from './scenes/overworld.js';
 import { DuelScene } from './scenes/duel.js';
-import { StartMenu, StatusScene, OptionsScene, NameEntry, BoosterScene, MedalScene, ShopScene, StarterScene, DeckSlots, AlbumScene, CreditsScene } from './scenes/menus.js';
+import { StartMenu, StatusScene, HelpScene, OptionsScene, NameEntry, BoosterScene, MedalScene, ShopScene, StarterScene, DeckSlots, AlbumScene, CreditsScene } from './scenes/menus.js';
 import { newSave, loadSave, writeSave, hasSave, eraseSave, addCards, activeDeckList, deckProblem } from './save.js';
 import { DECKS, STARTERS, expandDeck } from './data/decks.js';
 import { NPCS, LOCATIONS } from './data/world.js';
@@ -121,11 +121,12 @@ export class Game {
   async startMenu(scene) {
     const app = this.app;
     for (;;) {
-      const pick = await app.run(new StartMenu(['DECKS', 'ALBUM', 'STATUS', 'OPTIONS', 'SAVE', 'TITLE']));
+      const pick = await app.run(new StartMenu(['DECKS', 'ALBUM', 'STATUS', 'HELP', 'OPTIONS', 'SAVE', 'TITLE']));
       if (!pick) return null;
       if (pick === 'DECKS') await app.run(new DeckSlots(this.save));
       else if (pick === 'ALBUM') await app.run(new AlbumScene(this.save));
       else if (pick === 'STATUS') await app.run(new StatusScene(this.save));
+      else if (pick === 'HELP') await app.run(new HelpScene());
       else if (pick === 'OPTIONS') await app.run(new OptionsScene(this.save));
       else if (pick === 'SAVE') {
         this.persist();
@@ -204,6 +205,7 @@ export class Game {
           music: d.music,
         },
         textSpeed: s.settings.textSpeed,
+        tutorial: npc.id === 'jhoira' && !s.beaten.jhoira,
       }),
     );
     return res;
