@@ -596,13 +596,20 @@ export class DuelScene {
   async mulliganMenu() {
     const g = this.g;
     this.mode = 'blank';
+    this.bannerText = 'MULLIGAN...';
+    this.box.label = this.pname(this.human);
     for (;;) {
       const size = g.players[this.human].hand.length;
       const opts = ['KEEP', size > 1 ? 'MULLIGAN' : { label: 'MULLIGAN', disabled: true }, 'REVIEW'];
       const i = await this.box.choose(opts, { cols: 3, prompt: `KEEP YOUR OPENING HAND? (${size})`, colWidth: 46, cancel: false });
-      if (i === 0) return { type: 'keep' };
-      if (i === 1) return { type: 'mulligan' };
+      if (i === 0 || i === 1) {
+        this.bannerText = null;
+        this.box.label = null;
+        return { type: i === 0 ? 'keep' : 'mulligan' };
+      }
+      this.bannerText = null;
       await this.handList({ readOnly: true });
+      this.bannerText = 'MULLIGAN...';
     }
   }
 
@@ -692,7 +699,7 @@ export class DuelScene {
   }
 
   // Generic board cursor. candidates: slots. Returns slot or null.
-  async boardCursor({ candidates, prompt, start, onPick }) {
+  async boardCursor({ candidates, prompt, start, onPick, hint }) {
     const app = this.app;
     if (!candidates.length) return null;
     let cur = start && candidates.includes(start) ? start : candidates[0];
@@ -700,7 +707,7 @@ export class DuelScene {
     this.box.rect = { x: 0, y: 96, w: 96, h: 48 };
     const refresh = () => {
       this.cursor = cur;
-      const name = this.slotName(cur);
+      const name = hint || this.slotName(cur);
       this.box.mode = 'msg';
       this.box.lines = [prompt, name];
       this.box.shown = 999;
@@ -978,6 +985,7 @@ export class DuelScene {
     const r = await this.boardCursor({
       candidates: able,
       prompt: 'DECLARE ATTACKERS',
+      hint: 'PRESS B WHEN DONE.',
       onPick: async (slot) => {
         const on = chosen.has(slot.iid);
         const i = await this.box.choose(['CHECK', 'BACK', on ? 'CANCEL' : 'ATTACK!'], { cols: 2, colWidth: 38, start: 2 });
@@ -1020,6 +1028,7 @@ export class DuelScene {
       await this.boardCursor({
         candidates: mine,
         prompt: 'DECLARE BLOCKERS',
+        hint: 'PRESS B WHEN DONE.',
         onPick: async (slot) => {
           const on = blocks.has(slot.iid);
           const i = await this.box.choose(['CHECK', 'BACK', on ? 'UNBLOCK' : 'BLOCK'], { cols: 2, colWidth: 38, start: 2 });

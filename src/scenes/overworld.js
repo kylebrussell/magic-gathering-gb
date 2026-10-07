@@ -332,7 +332,9 @@ export class RoomScene {
     const [dx, dy] = DIRS[p.dir];
     const tx = p.x + dx;
     const ty = p.y + dy;
-    const npc = this.npcs.find((n) => n.x === tx && n.y === ty);
+    let npc = this.npcs.find((n) => n.x === tx && n.y === ty);
+    // talk across a shop counter
+    if (!npc && this.loc.room[ty]?.[tx] === 'c') npc = this.npcs.find((n) => n.x === tx + dx && n.y === ty + dy);
     if (npc) {
       npc.dir = { up: 'down', down: 'up', left: 'right', right: 'left' }[p.dir];
       await this.game.talk(this, npc);

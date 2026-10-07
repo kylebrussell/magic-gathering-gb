@@ -301,7 +301,8 @@ export class BoosterScene {
       this.mode = 'pack';
       this.card = null;
       playMusic('pack');
-      await this.box.say(`YOU GOT A ${PACKS[pack.set].name} BOOSTER PACK!`, { wait: true });
+      const nm = PACKS[pack.set].name;
+      await this.box.say(`YOU GOT ${/^[AEIOU]/.test(nm) ? 'AN' : 'A'} ${nm} BOOSTER PACK!`, { wait: true });
       sfx('card');
       for (let i = 0; i < pack.ids.length; i++) {
         const id = pack.ids[i];
