@@ -55,11 +55,13 @@ export class TextBox {
         else this.shown += opts.speed ?? this.speed;
       }
       const last = p === pages.length - 1;
-      if (opts.wait || !last) {
+      if (opts.wait) {
         this.arrow = true;
         await app.press(['a', 'b']);
         sfx('blip');
         this.arrow = false;
+      } else if (!last) {
+        await app.waitOrPress(Math.max(30, opts.hold ?? 30));
       } else if (opts.hold !== 0) {
         await app.waitOrPress(opts.hold ?? 30);
       }
