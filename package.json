@@ -1,0 +1,12 @@
+{
+  "name": "magic-gathering-gb",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A Game Boy-style Magic: The Gathering adventure, in the spirit of Pokémon Trading Card Game (GB).",
+  "scripts": {
+    "dev": "node server.mjs",
+    "test": "node --test test/*.test.js",
+    "sim": "node tools/sim.mjs"
+  }
+}
