@@ -152,7 +152,7 @@ export const DECKS = {
     cards: {
       plains: 22, savannah: 1, plateau: 1,
       savannah_lions: 3, white_knight: 3, tundra_wolves: 2, pearled_unicorn: 2, thunder_spirit: 2, northern_paladin: 2, moorish_cavalry: 3, serra_angel: 3,
-      samite_healer: 1, crusade: 2, holy_strength: 2, swords_to_plowshares: 2, righteousness: 2, disenchant: 2, army_of_allah: 2, wrath_of_god: 1, moat: 1, healing_salve: 2,
+      samite_healer: 1, crusade: 2, holy_strength: 2, swords_to_plowshares: 2, righteousness: 2, disenchant: 2, army_of_allah: 2, wrath_of_god: 1, moat: 1, healing_salve: 1,
     },
   },
 
