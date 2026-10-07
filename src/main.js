@@ -48,10 +48,12 @@ const params = new URLSearchParams(location.search);
 async function quickDuel() {
   if (params.has('auto')) app.speed = Number(params.get('auto')) || 4;
   const all = { ...STARTERS, ...DECKS };
-  const mine = all[params.get('deck') || 'mountain_rage'];
-  const theirs = all[params.get('duel')] || DECKS.mana_ramp;
+  const keys = Object.keys(all);
+  const pickDeck = (k) => (k === 'random' ? all[keys[Math.floor(Math.random() * keys.length)]] : all[k]);
   const first = params.has('first') ? Number(params.get('first')) : undefined;
   for (;;) {
+    const mine = pickDeck(params.get('deck') || 'mountain_rage');
+    const theirs = pickDeck(params.get('duel')) || DECKS.mana_ramp;
     await app.run(
       new DuelScene({
         seed: params.get('seed') ? Number(params.get('seed')) : undefined,

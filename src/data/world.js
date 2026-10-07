@@ -48,17 +48,15 @@ export const CLUB_COLORS = {
 
 // Room tiles: # wall, w window, b banner, s shelf, . floor, r rug, T table,
 // p plant, x pillar, c counter, D exit, m carpet, k pc/terminal
-const CLUB_ROOM = [
-  'b#w#mm#w#b',
-  '##########',
-  '....mm....',
-  'p...mm...p',
-  '.TT.mm.TT.',
-  '....mm....',
-  '.TT....TT.',
-  'p........p',
-  '....DD....',
-];
+// Members stand at (1,5) and (8,5); the master at (4,2).
+const ROOMS = {
+  forest: ['b#w#mm#w#b', '##########', 'pp..mm..pp', 'p...mm...p', '.TT.mm.TT.', '....mm....', '.TT....TT.', 'pp......pp', '....DD....'],
+  mountain: ['b#b#mm#b#b', '##########', '....mm....', 'x...mm...x', '.TT.mm.TT.', '....mm....', '.TT....TT.', 'x........x', '....DD....'],
+  island: ['w#w#mm#w#w', '##########', '....mm....', 'p.rrmmrr.p', '.TTrmmrTT.', '...rmmr...', '.TT....TT.', 'p........p', '....DD....'],
+  plains: ['b#w#mm#w#b', '##########', 'x...mm...x', '....mm....', '.TT.mm.TT.', 'x...mm...x', '.TT....TT.', '..........', '....DD....'],
+  swamp: ['s#b#mm#b#s', '##########', 'x...mm...x', '....mm....', '.TT.mm.TT.', '....mm....', '.TT....TT.', 'x...pp...x', '....DD....'],
+  artifact: ['s#w#mm#w#s', '##########', '....mm....', 'k...mm...k', '.TT.mm....', '....mm....', '.TT....xx.', '..........', '....DD....'],
+};
 
 export const LOCATIONS = {
   academy: {
@@ -80,12 +78,12 @@ export const LOCATIONS = {
     npcs: ['barrin', 'jhoira', 'rival1', 'rival2'],
     packSet: 'POR',
   },
-  forest: { name: 'FOREST CLUB', map: [26, 64], room: CLUB_ROOM, entry: [4, 7], npcs: ['elm', 'bo', 'nissa'], packSet: 'LEA', medal: 'G' },
-  mountain: { name: 'MOUNTAIN CLUB', map: [128, 24], room: CLUB_ROOM, entry: [4, 7], npcs: ['rocco', 'pete', 'chandra'], packSet: 'DRK', medal: 'R' },
-  island: { name: 'ISLAND CLUB', map: [30, 104], room: CLUB_ROOM, entry: [4, 7], npcs: ['finn', 'lin', 'jace'], packSet: 'LEG', medal: 'U' },
-  plains: { name: 'PLAINS CLUB', map: [34, 24], room: CLUB_ROOM, entry: [4, 7], npcs: ['ada', 'bertram', 'gideon'], packSet: 'ARN', medal: 'W' },
-  swamp: { name: 'SWAMP CLUB', map: [134, 66], room: CLUB_ROOM, entry: [4, 7], npcs: ['mort', 'nyx', 'liliana'], packSet: 'DRK', medal: 'B' },
-  artifact: { name: 'ARTIFACT CLUB', map: [126, 102], room: CLUB_ROOM, entry: [4, 7], npcs: ['tess', 'karn'], packSet: 'ATQ', medal: 'A' },
+  forest: { room: ROOMS.forest, name: 'FOREST CLUB', map: [26, 64], entry: [4, 7], npcs: ['elm', 'bo', 'nissa'], packSet: 'LEA', medal: 'G' },
+  mountain: { room: ROOMS.mountain, name: 'MOUNTAIN CLUB', map: [128, 24], entry: [4, 7], npcs: ['rocco', 'pete', 'chandra'], packSet: 'DRK', medal: 'R' },
+  island: { room: ROOMS.island, name: 'ISLAND CLUB', map: [30, 104], entry: [4, 7], npcs: ['finn', 'lin', 'jace'], packSet: 'LEG', medal: 'U' },
+  plains: { room: ROOMS.plains, name: 'PLAINS CLUB', map: [34, 24], entry: [4, 7], npcs: ['ada', 'bertram', 'gideon'], packSet: 'ARN', medal: 'W' },
+  swamp: { room: ROOMS.swamp, name: 'SWAMP CLUB', map: [134, 66], entry: [4, 7], npcs: ['mort', 'nyx', 'liliana'], packSet: 'DRK', medal: 'B' },
+  artifact: { room: ROOMS.artifact, name: 'ARTIFACT CLUB', map: [126, 102], entry: [4, 7], npcs: ['tess', 'karn'], packSet: 'ATQ', medal: 'A' },
   shop: {
     name: 'CARD SHOP',
     map: [80, 100],

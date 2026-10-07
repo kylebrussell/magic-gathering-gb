@@ -1103,7 +1103,7 @@ export class DuelScene {
     let reason = '';
     if (g.reason === 'deck') reason = won ? ` ${opp} RAN OUT OF CARDS.` : ' YOU RAN OUT OF CARDS.';
     if (g.reason === 'concede') reason = won ? ` ${opp} CONCEDED.` : '';
-    await this.box.say(won ? `YOU WON THE DUEL WITH ${opp}!${reason}` : g.winner === -1 ? 'THE DUEL IS A DRAW.' : `YOU LOST THE DUEL WITH ${opp}...${reason}`, { wait: true });
+    await this.box.say(won ? `YOU WON THE DUEL WITH ${opp}!${reason}` : g.winner === -1 ? 'THE DUEL IS A DRAW.' : `YOU LOST THE DUEL WITH ${opp}...${reason}`, { wait: !(this.opts.autoHuman || globalThis.MTG_AUTO) });
     await app.fadeOut(16);
     return { won, conceded: g.reason === 'concede' && !won, turns: g.turn };
   }
