@@ -59,6 +59,8 @@ test('room layouts are 10x9 and NPCs stand on open floor', () => {
   for (const [id, loc] of Object.entries(LOCATIONS)) {
     assert.equal(loc.room.length, 9, id);
     for (const row of loc.room) assert.equal(row.length, 10, id);
+    const [ex, ey] = loc.entry;
+    assert.ok('.rmD'.includes(loc.room[ey][ex]), `${id} entry is blocked`);
     for (const n of loc.npcs) {
       const [x, y] = NPCS[n].pos;
       assert.ok('.rmD'.includes(loc.room[y][x]), `${n} stands on ${loc.room[y][x]}`);
