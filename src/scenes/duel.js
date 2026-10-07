@@ -682,7 +682,7 @@ export class DuelScene {
     else if (g.step === 'end') prompt = 'END OF TURN.';
     for (;;) {
       this.mode = 'board';
-      const i = await this.box.choose(['HAND', 'BATTLE', 'PASS'], { cols: 3, prompt, colWidth: 46, cancel: false });
+      const i = await this.box.choose(['HAND', 'BATTLE', 'PASS'], { cols: 3, prompt, colWidth: 46, cancel: false, start: 2 });
       if (i === 0) {
         const a = await this.handList();
         if (a) return a;

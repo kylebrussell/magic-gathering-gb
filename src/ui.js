@@ -2,7 +2,7 @@
 
 import { C } from './gfx/palette.js';
 import { frame } from './gfx/draw.js';
-import { drawText, wrap, sliceVisible, visibleLength } from './gfx/font.js';
+import { drawText, wrap, sliceVisible, visibleLength, measure } from './gfx/font.js';
 import { icon } from './gfx/sprites.js';
 import { sfx } from './audio.js';
 
@@ -140,7 +140,12 @@ export class TextBox {
       const m = this.menu;
       let oy = ty;
       if (m.prompt) {
-        drawText(ctx, m.prompt.toUpperCase(), tx, oy, C.ink);
+        let p = m.prompt.toUpperCase();
+        if (measure(p) > w - 16) {
+          while (measure(p + '..') > w - 16 && p.length > 4) p = p.slice(0, -1);
+          p += '..';
+        }
+        drawText(ctx, p, tx, oy, C.ink);
         oy += 12;
       }
       const colW = m.colWidth ?? Math.floor((w - 16) / m.cols);
