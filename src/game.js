@@ -4,7 +4,7 @@
 import { TitleScene } from './scenes/title.js';
 import { MapScene, RoomScene } from './scenes/overworld.js';
 import { DuelScene } from './scenes/duel.js';
-import { StartMenu, StatusScene, HelpScene, OptionsScene, NameEntry, BoosterScene, MedalScene, ShopScene, StarterScene, DeckSlots, AlbumScene, CreditsScene } from './scenes/menus.js';
+import { StartMenu, StatusScene, HelpScene, OptionsScene, NameEntry, BoosterScene, openPacks, MedalScene, ShopScene, StarterScene, DeckSlots, AlbumScene, CreditsScene } from './scenes/menus.js';
 import { newSave, loadSave, writeSave, hasSave, eraseSave, addCards, activeDeckList, deckProblem } from './save.js';
 import { DECKS, STARTERS, expandDeck } from './data/decks.js';
 import { NPCS, LOCATIONS } from './data/world.js';
@@ -178,8 +178,9 @@ export class Game {
     playMusic(LOCATIONS[room.locId].music || 'club');
     await app.fadeIn(12);
     if (result.won) {
+      const reward = this.applyReward(npc, first);
       await room.say(d.win, npc);
-      await this.reward(room, npc, first);
+      await this.presentReward(room, reward);
     } else {
       s.stats.losses++;
       await room.say(d.lose, npc);
@@ -211,45 +212,56 @@ export class Game {
     return res;
   }
 
-  async reward(room, npc, first) {
-    const app = this.app;
+  // Apply a win's rewards to the save immediately; returns what to present.
+  applyReward(npc, first) {
     const s = this.save;
     const d = npc.def;
     s.stats.wins++;
     s.beaten[npc.id] = (s.beaten[npc.id] || 0) + 1;
     const prize = first ? d.prize : d.rematch || { packs: d.prize.packs.slice(0, 1), gold: Math.round((d.prize.gold || 30) / 3) };
-    if (prize.gold) {
-      s.gold += prize.gold;
-      sfx('coin');
-      await room.say([`YOU RECEIVED ${prize.gold} GOLD!`], null);
-    }
-    if (first && d.medal && !s.medals.includes(d.medal)) {
-      s.medals.push(d.medal);
-      await app.fadeOut(8);
-      await app.run(new MedalScene(d.medal));
-    }
-    if (first && prize.cards) {
-      addCards(s, prize.cards);
-      await app.run(new GiftScene(prize.cards));
-    }
-    if (prize.packs && prize.packs.length) await app.run(new BoosterScene(s, prize.packs));
-    playMusic(LOCATIONS[room.locId].music || 'club');
+    if (prize.gold) s.gold += prize.gold;
+    const medal = first && d.medal && !s.medals.includes(d.medal) ? d.medal : null;
+    if (medal) s.medals.push(medal);
+    const gifts = first && prize.cards ? prize.cards : [];
+    if (gifts.length) addCards(s, gifts);
+    const packs = openPacks(s, prize.packs || []);
+    let champion = false;
     if (d.grand) {
       s.flags.grand = Math.max(s.flags.grand || 0, d.grand);
       if (d.grand === 4 && !s.flags.champion) {
         s.flags.champion = true;
         s.flags.grand = 3;
-        this.persist();
-        await app.fadeOut(16);
-        await app.run(new CreditsScene(s.name));
-        playMusic('boss');
+        champion = true;
       }
+    }
+    this.persist();
+    return { prize, medal, gifts, packs, champion };
+  }
+
+  async presentReward(room, { prize, medal, gifts, packs, champion }) {
+    const app = this.app;
+    const s = this.save;
+    if (prize.gold) {
+      sfx('coin');
+      await room.say([`YOU RECEIVED ${prize.gold} GOLD!`], null);
+    }
+    if (medal) {
+      await app.fadeOut(8);
+      await app.run(new MedalScene(medal));
+    }
+    if (gifts.length) await app.run(new GiftScene(gifts));
+    if (packs.length) await app.run(new BoosterScene(s, packs));
+    playMusic(LOCATIONS[room.locId].music || 'club');
+    if (champion) {
+      await app.fadeOut(16);
+      await app.run(new CreditsScene(s.name));
+      playMusic('boss');
     }
     if (s.medals.length === 6 && !s.flags.sixMedals) {
       s.flags.sixMedals = true;
+      this.persist();
       await room.say(['YOU HAVE ALL SIX MEDALS!', 'THE GATE TO THE PLANESWALKER SUMMIT IS NOW OPEN.'], null);
     }
-    this.persist();
     room.refreshNpcs();
     await app.fadeIn(8);
   }

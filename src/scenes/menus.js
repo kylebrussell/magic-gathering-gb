@@ -4,7 +4,7 @@
 import { C, CARD_COLORS } from '../gfx/palette.js';
 import { fill, frame, popupCard, typeLabel, banner } from '../gfx/draw.js';
 import { drawText, drawTextRight, drawTextCenter, drawTextOutline, measure, wrap, manaSymbols } from '../gfx/font.js';
-import { icon, typeIcon } from '../gfx/sprites.js';
+import { icon, typeIcon, medalSprite } from '../gfx/sprites.js';
 import { cardArt } from '../gfx/art.js';
 import { portrait } from '../gfx/portraits.js';
 import { CARDS, cardColor } from '../data/cards.js';
@@ -67,9 +67,13 @@ export class StatusScene {
     MEDALS.forEach((m, i) => {
       const x = 12 + i * 24;
       const got = s.medals.includes(m.id);
-      const spr = icon('medal', got ? { o: C.ink, w: m.color, r: C.yellow } : { o: C.grey, w: C.bgLight, r: C.grey });
-      ctx.drawImage(spr, 0, 0, 7, 7, x, 90, 14, 14);
-      drawText(ctx, m.id === 'A' ? 'ART' : m.id, x + (m.id === 'A' ? 0 : 4), 108, got ? C.ink : C.grey);
+      if (got) ctx.drawImage(medalSprite(m.color, m.id), x - 4, 86);
+      else {
+        ctx.strokeStyle = C.grey;
+        ctx.beginPath();
+        ctx.arc(x + 8.5, 102.5, 9, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     });
     if (s.flags.champion) drawTextCenter(ctx, '★ PLANESWALKER ★', 80, 124, C.orange);
   }
@@ -264,16 +268,27 @@ function drawPack(ctx, cx, cy, set, t = 0) {
   drawTextCenter(ctx, '8 CARDS', cx, y + 56, C.white);
 }
 
+// Open packs and add them to the collection right away (so nothing is lost if
+// the game is closed mid-ceremony). Returns [{ set, ids, fresh: [bool] }].
+export function openPacks(save, sets) {
+  return sets.map((set) => {
+    const ids = openPack(set);
+    const fresh = ids.map((id) => addCards(save, [id]).length > 0);
+    save.stats.packs++;
+    return { set, ids, fresh };
+  });
+}
+
 export class BoosterScene {
+  // packs: result of openPacks()
   constructor(save, packs) {
     this.save = save;
     this.packs = packs;
     this.mode = 'pack';
-    this.set = packs[0];
+    this.set = packs[0]?.set;
     this.t = 0;
     this.card = null;
     this.isNew = false;
-    this.got = [];
   }
   update() {
     this.t++;
@@ -281,18 +296,16 @@ export class BoosterScene {
   async run(app) {
     this.box = new TextBox(app);
     this.box.speed = this.save.settings.textSpeed;
-    for (const set of this.packs) {
-      this.set = set;
+    for (const pack of this.packs) {
+      this.set = pack.set;
       this.mode = 'pack';
       this.card = null;
       playMusic('pack');
-      await this.box.say(`YOU GOT A ${PACKS[set].name} BOOSTER PACK!`, { wait: true });
+      await this.box.say(`YOU GOT A ${PACKS[pack.set].name} BOOSTER PACK!`, { wait: true });
       sfx('card');
-      const ids = openPack(set);
-      this.save.stats.packs++;
-      for (const id of ids) {
-        const fresh = addCards(this.save, [id]).length > 0;
-        this.got.push(id);
+      for (let i = 0; i < pack.ids.length; i++) {
+        const id = pack.ids[i];
+        const fresh = pack.fresh[i];
         this.mode = 'card';
         this.card = CARDS[id];
         this.isNew = fresh;
@@ -300,10 +313,9 @@ export class BoosterScene {
         await this.box.say(`${CARDS[id].name.toUpperCase()}${fresh ? ' (NEW!)' : ''}`, { wait: true, speed: 4 });
       }
       this.mode = 'list';
-      this.list = ids;
+      this.list = pack.ids;
       await this.box.say('THE CARDS WERE ADDED TO YOUR COLLECTION.', { wait: true });
     }
-    return this.got;
   }
   draw(ctx, app) {
     fill(ctx, C.bg);
@@ -312,7 +324,7 @@ export class BoosterScene {
       popupCard(ctx, 80, 48, typeLabel(this.card), cardArt(this.card));
       if (this.isNew && Math.floor(this.t / 15) % 2 === 0) drawTextOutline(ctx, 'NEW!', 126, 10, C.yellow, C.ink);
       const rar = this.card.rarity;
-      drawText(ctx, rar === 'R' ? '★ RARE' : rar === 'U' ? 'UNCOMMON' : 'COMMON', 120, 86, rar === 'R' ? C.orange : C.greyDark);
+      drawText(ctx, rar === 'R' ? '★ RARE' : rar === 'U' ? 'UNCOMMON' : 'COMMON', 116, 86, rar === 'R' ? C.orange : C.greyDark);
     }
     if (this.mode === 'list' && this.list) {
       frame(ctx, 0, 0, 160, 96);
@@ -347,8 +359,7 @@ export class MedalScene {
   }
   draw(ctx) {
     fill(ctx, C.bg);
-    const spr = icon('medal', { o: C.ink, w: this.medal.color, r: C.yellow });
-    ctx.drawImage(spr, 0, 0, 7, 7, 52, 18, 56, 56);
+    ctx.drawImage(medalSprite(this.medal.color, this.medal.id, 2), 56, 14);
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2 + this.t / 30;
       const r = 36 + Math.sin(this.t / 10 + i) * 3;
@@ -393,9 +404,10 @@ export class ShopScene {
       if (ok !== 0) continue;
       this.save.gold -= price;
       sfx('coin');
-      await app.run(new BoosterScene(this.save, [set]));
-      playMusic('club');
+      const opened = openPacks(this.save, [set]);
       writeSave(this.save);
+      await app.run(new BoosterScene(this.save, opened));
+      playMusic('club');
     }
   }
   draw(ctx, app) {

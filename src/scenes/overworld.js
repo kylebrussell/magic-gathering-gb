@@ -5,7 +5,7 @@ import { fill, frame } from '../gfx/draw.js';
 import { drawText, drawTextCenter } from '../gfx/font.js';
 import { charSprite, tile, building, SOLID } from '../gfx/tiles.js';
 import { portrait } from '../gfx/portraits.js';
-import { icon } from '../gfx/sprites.js';
+import { icon, medalSprite } from '../gfx/sprites.js';
 import { LOCATIONS, PATHS, NPCS, CLUB_COLORS, MEDALS, SPR, npcsIn } from '../data/world.js';
 import { TextBox } from '../ui.js';
 import { playMusic, sfx } from '../audio.js';
@@ -225,7 +225,7 @@ export class MapScene {
       ctx.drawImage(building(color, id === 'summit' ? 'summit' : id === 'shop' ? 'shop' : 'club'), x - 8, y - 12);
       if (loc.medal && this.save.medals.includes(loc.medal)) {
         const m = MEDALS.find((mm) => mm.id === loc.medal);
-        ctx.drawImage(icon('medal', { o: C.ink, w: m.color, r: C.yellow }), x + 5, y - 15);
+        ctx.drawImage(medalSprite(m.color, m.id), 0, 0, 24, 28, x + 3, y - 18, 12, 14);
       }
     }
     const [px, py] = this.pos;

@@ -297,3 +297,55 @@ export function cardBack() {
     INK,
   );
 }
+
+// Club medal: ribbon, gold rim, coloured face with the club's symbol.
+export function medalSprite(color, id, scale = 1) {
+  const key = `medal|${color}|${id}|${scale}`;
+  let c = cache.get(key);
+  if (c) return c;
+  const S = 24;
+  c = document.createElement('canvas');
+  c.width = S * scale;
+  c.height = 28 * scale;
+  const x = c.getContext('2d');
+  x.scale(scale, scale);
+  // ribbon tails
+  x.fillStyle = C.ink;
+  x.fillRect(5, 0, 6, 12);
+  x.fillRect(13, 0, 6, 12);
+  x.fillStyle = '#d02828';
+  x.fillRect(6, 0, 4, 11);
+  x.fillStyle = '#2858d0';
+  x.fillRect(14, 0, 4, 11);
+  // rim and face
+  const disk = (r, col) => {
+    x.fillStyle = col;
+    x.beginPath();
+    x.arc(12, 16, r, 0, Math.PI * 2);
+    x.fill();
+  };
+  disk(11.5, C.ink);
+  disk(10.5, '#f8d040');
+  disk(9.5, '#b08010');
+  disk(8, C.ink);
+  disk(7, color);
+  // symbol
+  x.fillStyle = id === 'W' || id === 'A' ? C.ink : C.white;
+  const glyph = {
+    W: ['..#..', '#.#.#', '.###.', '#####', '.###.', '#.#.#', '..#..'],
+    U: ['..#..', '..#..', '.###.', '.###.', '#####', '#####', '.###.'],
+    B: ['.###.', '#####', '#.#.#', '#####', '.###.', '.#.#.', '.....'],
+    R: ['..#..', '.##..', '.###.', '####.', '#####', '#####', '.###.'],
+    G: ['..#..', '.###.', '#####', '.###.', '#####', '..#..', '..#..'],
+    A: ['.#.#.', '#####', '##.##', '#...#', '##.##', '#####', '.#.#.'],
+  }[id] || [];
+  glyph.forEach((row, ry) => {
+    for (let i = 0; i < 5; i++) if (row[i] === '#') x.fillRect(10 + i - 0.5, 12.5 + ry, 1, 1);
+  });
+  // shine
+  x.fillStyle = 'rgba(255,255,255,0.6)';
+  x.fillRect(7, 11, 2, 1);
+  x.fillRect(6, 12, 1, 2);
+  cache.set(key, c);
+  return c;
+}
