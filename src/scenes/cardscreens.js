@@ -210,8 +210,8 @@ export class CardList {
       if (it.tag) drawText(ctx, it.tag, 5, y, C.red);
       if (idx === this.cur && (!this.box || this.box.mode !== 'menu' || Math.floor(app.frameCount / 16) % 2 === 0)) ctx.drawImage(icon('cursor'), 6, y);
     }
-    if (this.top + this.rows < n) ctx.drawImage(icon('arrowDown'), 145, 88);
-    if (this.top > 0) ctx.drawImage(icon('arrowUp'), 145, 13);
+    if (this.top + this.rows < n) ctx.drawImage(icon('arrowDown'), 78, 89);
+    if (this.top > 0) ctx.drawImage(icon('arrowUp'), 78, 13);
     if (this.box) this.box.draw(ctx);
     const it = this.items[this.cur];
     fill(ctx, C.bg, 96, 96, 64, 48);

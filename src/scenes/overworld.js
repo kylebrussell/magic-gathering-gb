@@ -366,10 +366,10 @@ export class RoomScene {
     this.portrait = null;
   }
 
-  async ask(question, npc, options = ['YES', 'NO']) {
+  async ask(question, npc, options = ['YES', 'NO'], start = 0) {
     this.box.label = npc ? npc.def.name : null;
     this.portrait = npc && npc.def.portrait ? npc.def.portrait : null;
-    const i = await this.box.choose(options, { cols: options.length > 2 ? 3 : 2, prompt: question, colWidth: options.length > 2 ? 46 : 60 });
+    const i = await this.box.choose(options, { cols: options.length > 2 ? 3 : 2, prompt: question, colWidth: options.length > 2 ? 46 : 60, start });
     this.box.clear();
     this.box.label = null;
     this.portrait = null;

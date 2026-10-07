@@ -172,7 +172,8 @@ export function quickBlocks(g, me) {
     const best = cands[0];
     const sc = score(best);
     const pw = Math.max(0, E.power(g, a));
-    const lethal = incoming >= life;
+    // treat "nearly dead" as dead: keep a small cushion when racing
+    const lethal = incoming >= life - 2;
     if (sc >= 1 || (lethal && pw > 0) || (sc === 2 && pw > 0)) {
       blocks.push([best, a]);
       free.delete(best);
@@ -186,7 +187,15 @@ function simulateBlocks(g, me, blocks) {
   const s = E.clone(g);
   if (!tryAct(s, { type: 'block', blocks })) return -Infinity;
   runCombat(s);
-  return evaluate(s, me);
+  let v = evaluate(s, me);
+  if (!s.over) {
+    // being left in range of the next attack is worse than a lost creature
+    const danger = crackbackDanger(s, me);
+    const life = s.players[me].life;
+    if (danger >= life) v -= 30;
+    else if (danger >= life - 3) v -= 3;
+  }
+  return v;
 }
 
 function chooseBlocks(g, me, skill) {

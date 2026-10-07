@@ -86,6 +86,7 @@ const HELP_PAGES = [
   ['CONTROLS', 'D-PAD  MOVE AND CHOOSE', 'A      OK, TALK, CAST', 'B      BACK, CANCEL', 'START  MENU', 'SELECT CARD INFO', '', 'KEYBOARD: ARROWS, Z=A,', 'X=B, ENTER=START,', 'SHIFT=SELECT'],
   ['THE GOAL', 'EACH PLAYER STARTS WITH', '20 LIFE. BRING YOUR', "OPPONENT'S LIFE TO 0 TO", 'WIN THE DUEL.', '', 'IF YOU MUST DRAW FROM AN', 'EMPTY LIBRARY, YOU LOSE.'],
   ['YOUR TURN', 'BEGINNING: UNTAP, DRAW', 'MAIN 1: PLAY A LAND AND', '  CAST SPELLS', 'COMBAT: ATTACK WITH', '  YOUR CREATURES', 'MAIN 2: CAST MORE SPELLS', 'END: DISCARD DOWN TO 7'],
+  ['THE BOARD', 'OPPONENT TOP, YOU BOTTOM.', 'THE COLUMNS COUNT EACH', "PLAYER'S HAND, GRAVEYARD,", 'LIBRARY AND EXILE.', 'THE D20 IS LIFE. SMALL', 'CARDS ARE PERMANENTS;', 'BATTLEFIELD SHOWS THEM.'],
   ['MANA', 'LANDS TAP FOR MANA OF', 'THEIR COLOR: {W}{U}{B}{R}{G}.', 'A COST LIKE {2}{R} NEEDS', 'ONE RED AND TWO MORE OF', 'ANY KIND. YOUR LANDS ARE', 'TAPPED FOR YOU WHEN YOU', 'CAST. ONE LAND PER TURN.'],
   ['CREATURES', 'PT 2/3 = POWER 2,', 'TOUGHNESS 3. DAMAGE EQUAL', 'TO TOUGHNESS DESTROYS IT.', 'NEW CREATURES CAN\'T', 'ATTACK RIGHT AWAY.', 'UNTAPPED CREATURES CAN', 'BLOCK ATTACKERS.'],
   ['KEYWORDS', 'FLY: ONLY FLYERS OR REACH', '  CAN BLOCK IT', '1ST: FIRST STRIKE', 'TRM: TRAMPLE', 'HST: HASTE', 'VIG: VIGILANCE', 'DEF: DEFENDER, CAN\'T ATTACK'],
@@ -220,6 +221,7 @@ export class NameEntry {
     fill(ctx, C.bg);
     frame(ctx, 0, 0, 160, 144);
     drawText(ctx, this.prompt, 10, 10, C.ink);
+    drawText(ctx, 'B:DELETE  START:END', 10, 130, C.greyDark);
     for (let i = 0; i < this.max; i++) {
       const ch = this.name[i] || '';
       drawText(ctx, ch, 12 + i * 9, 30, C.ink);
@@ -325,7 +327,7 @@ export class BoosterScene {
       popupCard(ctx, 80, 48, typeLabel(this.card), cardArt(this.card));
       if (this.isNew && Math.floor(this.t / 15) % 2 === 0) drawTextOutline(ctx, 'NEW!', 126, 10, C.yellow, C.ink);
       const rar = this.card.rarity;
-      drawText(ctx, rar === 'R' ? '★ RARE' : rar === 'U' ? 'UNCOMMON' : 'COMMON', 116, 86, rar === 'R' ? C.orange : C.greyDark);
+      drawText(ctx, rar === 'R' ? '★ RARE' : rar === 'U' ? 'UNCOMMON' : 'COMMON', 112, 86, rar === 'R' ? C.orange : C.greyDark);
     }
     if (this.mode === 'list' && this.list) {
       frame(ctx, 0, 0, 160, 96);
@@ -470,14 +472,16 @@ export class DeckSlots {
   }
   async run(app) {
     this.box = new TextBox(app);
+    // separate box so the deck list stays visible behind the submenu
+    this.list = new TextBox(app);
+    this.list.rect = { x: 0, y: 0, w: 160, h: 96 };
     let cur = this.save.activeDeck || 0;
     for (;;) {
       const s = this.save;
       while (s.decks.length < 3) s.decks.push({ name: `DECK ${s.decks.length + 1}`, cards: {} });
       const opts = s.decks.map((d, i) => `${i === s.activeDeck ? '★' : ' '}${d.name.toUpperCase().slice(0, 14)}`);
-      this.box.rect = { x: 0, y: 0, w: 160, h: 96 };
-      const i = await this.box.choose(opts, { cols: 1, start: cur, prompt: 'YOUR DECKS', onMove: (k) => (this.cur = k) });
-      this.box.rect = { x: 0, y: 96, w: 160, h: 48 };
+      this.box.show('A: CHOOSE  B: BACK');
+      const i = await this.list.choose(opts, { cols: 1, start: cur, prompt: 'YOUR DECKS', onMove: (k) => (this.cur = k) });
       if (i < 0) return;
       cur = i;
       const deck = s.decks[i];
@@ -507,6 +511,7 @@ export class DeckSlots {
   }
   draw(ctx) {
     fill(ctx, C.bg);
+    this.list.draw(ctx);
     this.box.draw(ctx);
     const s = this.save;
     s.decks.forEach((d, i) => {
@@ -666,8 +671,8 @@ export class DeckEditor {
       drawTextRight(ctx, `${inDeck}/${d.basic ? '-' : have}`, 152, y, inDeck ? C.ink : C.greyDark);
       if (idx === this.cur) ctx.drawImage(icon('cursor'), 6, y);
     }
-    if (this.top + this.rows < this.ids.length) ctx.drawImage(icon('arrowDown'), 145, 89);
-    if (this.top > 0) ctx.drawImage(icon('arrowUp'), 145, 13);
+    if (this.top + this.rows < this.ids.length) ctx.drawImage(icon('arrowDown'), 78, 90);
+    if (this.top > 0) ctx.drawImage(icon('arrowUp'), 78, 13);
     if (this.box.mode) this.box.draw(ctx);
     else {
       frame(ctx, 0, 96, 96, 48);
@@ -694,7 +699,8 @@ export class AlbumScene {
   async run(app) {
     const all = Object.values(CARDS).filter((d) => !d.basic);
     const setOrder = ['LEA', 'ARN', 'ATQ', 'LEG', 'DRK', 'POR'];
-    all.sort((a, b) => setOrder.indexOf(a.set) - setOrder.indexOf(b.set) || sortKey(a)[0] - sortKey(b)[0] || a.name.localeCompare(b.name));
+    const own = (d) => (this.save.collection[d.id] ? 0 : 1);
+    all.sort((a, b) => own(a) - own(b) || setOrder.indexOf(a.set) - setOrder.indexOf(b.set) || sortKey(a)[0] - sortKey(b)[0] || a.name.localeCompare(b.name));
     const have = all.filter((d) => this.save.collection[d.id]).length;
     const items = all.map((d) => {
       const n = this.save.collection[d.id] || 0;

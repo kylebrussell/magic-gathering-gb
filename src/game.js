@@ -170,7 +170,8 @@ export class Game {
     }
     const first = !s.beaten[npc.id];
     if (first) await room.say(d.intro, npc);
-    const ok = await room.ask(first ? 'ACCEPT THE DUEL?' : 'A REMATCH? DUEL AGAIN?', npc);
+    // a rematch defaults to NO so mashing A through rewards can't start one
+    const ok = await room.ask(first ? 'ACCEPT THE DUEL?' : 'A REMATCH? DUEL AGAIN?', npc, ['YES', 'NO'], first ? 0 : 1);
     if (ok !== 0) return room.say(['COME BACK WHEN YOU ARE READY.'], npc);
     const problem = deckProblem(s, (s.decks[s.activeDeck] || { cards: {} }).cards);
     if (problem) return room.say(["YOUR DECK ISN'T READY.", problem, 'PRESS START AND CHOOSE DECKS TO FIX IT.'], null);
