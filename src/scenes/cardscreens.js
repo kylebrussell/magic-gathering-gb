@@ -189,7 +189,11 @@ export class CardList {
       const it = this.items[idx];
       const y = 17 + i * 15;
       const d = it.def;
-      ctx.drawImage(typeIcon(d, cardColor(d)), 13, y - 2);
+      if (it.unknown) {
+        fill(ctx, C.ink, 13, y - 2, 11, 11);
+        fill(ctx, C.grey, 14, y - 1, 9, 9);
+        drawText(ctx, '?', 17, y, C.bg);
+      } else ctx.drawImage(typeIcon(d, cardColor(d)), 13, y - 2);
       const name = (it.label || d.name).toUpperCase();
       const color = it.dim ? C.grey : C.ink;
       let x = 27;
@@ -208,7 +212,10 @@ export class CardList {
     if (this.box) this.box.draw(ctx);
     const it = this.items[this.cur];
     fill(ctx, C.bg, 96, 96, 64, 48);
-    if (it) ctx.drawImage(cardArt(it.def), 96, 96);
+    if (it && it.unknown) {
+      fill(ctx, C.grey, 96, 96, 64, 48);
+      drawTextCenter(ctx, '?', 128, 116, C.bg);
+    } else if (it) ctx.drawImage(cardArt(it.def), 96, 96);
   }
 }
 

@@ -194,6 +194,8 @@ export class App {
   // Push a scene, run it to completion, pop it, return its result.
   async run(scene) {
     this.stack.push(scene);
+    // Scenes pushed while the screen is faded out fade back in on their own.
+    if (this.fadeLevel > 0 && !scene.manualFade) this.fadeIn(12);
     try {
       return await scene.run(this);
     } finally {

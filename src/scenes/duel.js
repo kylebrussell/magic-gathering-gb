@@ -29,6 +29,7 @@ const EFFECT_EVENTS = new Set(['damage', 'destroy', 'dies', 'mod', 'life', 'boun
 
 export class DuelScene {
   constructor(opts) {
+    this.manualFade = true;
     this.opts = opts;
     this.human = 0;
     this.mode = 'blank';
@@ -528,7 +529,7 @@ export class DuelScene {
   async humanDecision(pend) {
     const g = this.g;
     this.mode = 'board';
-    if (this.opts.autoHuman) return decide(g, { skill: 1 });
+    if (this.opts.autoHuman || globalThis.MTG_AUTO) return decide(g, { skill: 1 });
     switch (pend.type) {
       case 'mulligan':
         return this.mulliganMenu();
