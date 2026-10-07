@@ -217,7 +217,7 @@ export const DECKS = {
       swamp: 9, mountain: 9, badlands: 3, strip_mine: 1, mox_jet: 1, mox_ruby: 1,
       juzam_djinn: 3, ball_lightning: 2, juggernaut: 3, hypnotic_specter: 4, black_knight: 2, sengir_vampire: 3,
       orcish_artillery: 1, dark_ritual: 2, lightning_bolt: 4, chain_lightning: 2, terror: 3, fireball: 2,
-      sinkhole: 1, demonic_tutor: 1, mind_twist: 1, royal_assassin: 1,
+      sinkhole: 2, demonic_tutor: 1, mind_twist: 1, royal_assassin: 1,
     },
   },
   bolas: {
