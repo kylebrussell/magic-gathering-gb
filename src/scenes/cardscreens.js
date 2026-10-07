@@ -153,7 +153,10 @@ export class CardList {
           if (r !== undefined) return r;
           continue;
         }
-        const choice = await this.box.choose(acts.map((a) => (typeof a === 'string' ? { label: a } : a)), { cols: 2, colWidth: 38 });
+        const opts = acts.map((a) => (typeof a === 'string' ? { label: a } : a));
+        // start on the main action (CAST / PLAY / TARGET...) when it's available
+        const main = opts.findIndex((o, k) => k >= 2 && !o.disabled);
+        const choice = await this.box.choose(opts, { cols: 2, colWidth: 38, start: main >= 0 ? main : 0 });
         if (choice < 0) continue;
         const label = typeof acts[choice] === 'string' ? acts[choice] : acts[choice].label;
         if (label === 'BACK') continue;

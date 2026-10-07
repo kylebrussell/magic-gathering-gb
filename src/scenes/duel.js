@@ -571,30 +571,33 @@ export class DuelScene {
 
   // Returns an action, or null if the player backed out.
   async handList({ readOnly = false } = {}) {
-    const g = this.g;
-    const items = this.handItems(readOnly);
-    const list = new CardList({
-      title: `${this.pname(this.human)}'S HAND`,
-      items,
-      prompt: readOnly ? 'REVIEW YOUR HAND' : 'SELECT A CARD',
-      actions: (it) => {
-        if (readOnly) return ['CHECK', 'BACK'];
-        const verb = it.def.type.includes('Land') ? 'PLAY' : 'CAST';
-        return ['CHECK', 'BACK', { label: verb, disabled: !it.playable }];
-      },
-      handle: async (it, label) => {
-        if (label === 'PLAY') return { type: 'play', iid: it.iid };
-        if (label === 'CAST') {
-          const action = await this.castFlow(it.iid);
-          if (action) return action;
+    let start = 0;
+    for (;;) {
+      const items = this.handItems(readOnly);
+      const list = new CardList({
+        title: `${this.pname(this.human)}'S HAND`,
+        items,
+        start: Math.min(start, Math.max(0, items.length - 1)),
+        prompt: readOnly ? 'REVIEW YOUR HAND' : 'SELECT A CARD',
+        actions: (it) => {
+          if (readOnly) return ['CHECK', 'BACK'];
+          const verb = it.def.type.includes('Land') ? 'PLAY' : 'CAST';
+          return ['CHECK', 'BACK', { label: verb, disabled: !it.playable }];
+        },
+        handle: async (it, label, idx) => {
+          start = idx;
+          if (label === 'PLAY') return { type: 'play', iid: it.iid };
+          if (label === 'CAST') return { cast: it.iid };
           return undefined;
-        }
-        return undefined;
-      },
-    });
-    const r = await this.app.run(list);
-    this.mode = 'board';
-    return r;
+        },
+      });
+      const r = await this.app.run(list);
+      this.mode = 'board';
+      if (!r || !r.cast) return r;
+      // close the list so the board is visible while choosing targets
+      const action = await this.castFlow(r.cast);
+      if (action) return action;
+    }
   }
 
   async mainMenu() {
@@ -833,7 +836,7 @@ export class DuelScene {
       start: theirs,
       prompt: 'CHOOSE 1 TARGET.',
       onPick: async (slot) => {
-        const i = await this.box.choose(['CHECK', 'BACK', 'TARGET'], { cols: 2, colWidth: 38 });
+        const i = await this.box.choose(['CHECK', 'BACK', 'TARGET'], { cols: 2, colWidth: 38, start: 2 });
         if (i === 0) {
           if (slot.kind === 'perm') await this.app.run(new CardDetail([this.liveCard(slot.iid)]));
           return undefined;
@@ -927,7 +930,7 @@ export class DuelScene {
       prompt: 'DECLARE ATTACKERS',
       onPick: async (slot) => {
         const on = chosen.has(slot.iid);
-        const i = await this.box.choose(['CHECK', 'BACK', on ? 'CANCEL' : 'ATTACK!'], { cols: 2, colWidth: 38 });
+        const i = await this.box.choose(['CHECK', 'BACK', on ? 'CANCEL' : 'ATTACK!'], { cols: 2, colWidth: 38, start: 2 });
         if (i === 0) await this.app.run(new CardDetail([this.liveCard(slot.iid)]));
         if (i === 2) {
           if (on && !E.mustAttack(g, slot.iid)) chosen.delete(slot.iid);
@@ -969,7 +972,7 @@ export class DuelScene {
         prompt: 'DECLARE BLOCKERS',
         onPick: async (slot) => {
           const on = blocks.has(slot.iid);
-          const i = await this.box.choose(['CHECK', 'BACK', on ? 'UNBLOCK' : 'BLOCK'], { cols: 2, colWidth: 38 });
+          const i = await this.box.choose(['CHECK', 'BACK', on ? 'UNBLOCK' : 'BLOCK'], { cols: 2, colWidth: 38, start: 2 });
           if (i === 0) await this.app.run(new CardDetail([this.liveCard(slot.iid)]));
           if (i === 2) {
             if (on) blocks.delete(slot.iid);
