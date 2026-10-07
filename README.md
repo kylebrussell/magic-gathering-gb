@@ -8,11 +8,15 @@ It runs in the browser at the Game Boy's native 160×144 resolution, has no depe
 
 ## Play
 
+**Play online:** <https://kylebrussell.github.io/magic-gathering-gb/>
+
+Or run it locally:
+
 ```bash
 npm run dev
 ```
 
-Then open <http://localhost:8080>.
+Then open <http://localhost:8080>. GitHub Pages redeploys on every push to `main`.
 
 | Button | Keyboard | Use |
 | --- | --- | --- |
