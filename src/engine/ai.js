@@ -190,7 +190,7 @@ function simulateBlocks(g, me, blocks) {
 }
 
 function chooseBlocks(g, me, skill) {
-  if (skill < 0.5) return quickBlocks(g, me);
+  if (skill < 0.6 || nextRandom(g) > skill + 0.15) return quickBlocks(g, me);
   const atk = [...E.attackers(g)].sort((a, b) => E.power(g, b) - E.power(g, a));
   let blocks = [];
   let best = simulateBlocks(g, me, blocks);
@@ -274,9 +274,10 @@ function chooseAttackers(g, me, skill) {
       cur = bestSet;
     }
   }
-  if (skill < 0.4 && nextRandom(g) < 0.3) {
-    // Sloppy opponents sometimes just send everyone.
-    return able;
+  const slip = nextRandom(g);
+  if (slip < (1 - skill) * 0.5) {
+    // Sloppy opponents sometimes just send everyone, or hold back.
+    return slip < (1 - skill) * 0.25 ? able : able.filter((iid) => E.power(g, iid) >= 3);
   }
   return bestSet;
 }
@@ -436,10 +437,11 @@ function choosePriority(g, me, skill) {
       best = a;
     }
   }
-  if (best && skill < 0.5 && nextRandom(g) > skill + 0.4) {
-    // Weaker players sometimes pick a merely-decent play.
+  if (best && nextRandom(g) < (1 - skill) * 0.6) {
+    // Weaker players sometimes pick a merely-decent play, or miss it entirely.
     const ok = scored.filter(([v]) => v > baseline + 0.25);
-    if (ok.length) best = ok[Math.floor(nextRandom(g) * ok.length)][1];
+    if (ok.length && nextRandom(g) < 0.7) best = ok[Math.floor(nextRandom(g) * ok.length)][1];
+    else if (g.stack.length || !E.isMain(g.step)) best = null;
   }
   return best || { type: 'pass' };
 }

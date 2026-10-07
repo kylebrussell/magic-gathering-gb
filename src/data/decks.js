@@ -71,9 +71,9 @@ export const DECKS = {
     name: 'Mana Ramp Deck',
     cards: {
       forest: 22, taiga: 1, savannah: 1,
-      birds_of_paradise: 4, llanowar_elves: 4, killer_bees: 2, elvish_archers: 2, giant_spider: 2, erhnam_djinn: 3,
-      craw_wurm: 3, force_of_nature: 2, spined_wurm: 2,
-      giant_growth: 3, berserk: 2, hurricane: 2, desert_twister: 2, stream_of_life: 1, monstrous_growth: 2,
+      birds_of_paradise: 4, llanowar_elves: 4, killer_bees: 3, elvish_archers: 2, grizzly_bears: 2, giant_spider: 2, erhnam_djinn: 4,
+      craw_wurm: 3, force_of_nature: 2, spined_wurm: 1,
+      giant_growth: 3, berserk: 2, hurricane: 1, desert_twister: 2, monstrous_growth: 1,
     },
   },
 
@@ -109,24 +109,24 @@ export const DECKS = {
     name: 'Merfolk Tide',
     cards: {
       island: 24,
-      merfolk_of_the_pearl_trident: 4, lord_of_atlantis: 2, giant_tortoise: 3, flying_men: 3, storm_crow: 3, cloud_pirates: 2,
-      phantom_monster: 3, water_elemental: 2, sea_serpent: 2, unsummon: 4, jump: 2, flight: 2, psionic_blast: 2, wall_of_air: 2,
+      merfolk_of_the_pearl_trident: 4, lord_of_atlantis: 1, giant_tortoise: 3, flying_men: 3, storm_crow: 3, cloud_pirates: 3,
+      phantom_monster: 2, water_elemental: 2, sea_serpent: 3, unsummon: 4, jump: 2, flight: 3, psionic_blast: 1, wall_of_air: 2,
     },
   },
   sky_patrol: {
     name: 'Sky Patrol',
     cards: {
       island: 24,
-      flying_men: 4, storm_crow: 4, cloud_pirates: 3, wall_of_air: 2, phantom_monster: 4, air_elemental: 3, serendib_efreet: 2,
-      unsummon: 3, counterspell: 3, jump: 1, flight: 2, psionic_blast: 2, giant_tortoise: 2, mahamoti_djinn: 1,
+      flying_men: 4, storm_crow: 4, cloud_pirates: 3, wall_of_air: 2, phantom_monster: 3, air_elemental: 2, serendib_efreet: 1,
+      unsummon: 3, counterspell: 1, jump: 2, flight: 2, psionic_blast: 1, giant_tortoise: 3, merfolk_of_the_pearl_trident: 3, water_elemental: 2,
     },
   },
   mind_games: {
     name: 'Mind Games',
     cards: {
       island: 22, tundra: 1, volcanic_island: 1,
-      prodigal_sorcerer: 4, giant_tortoise: 2, phantom_monster: 3, serendib_efreet: 3, air_elemental: 2, mahamoti_djinn: 2, wall_of_air: 2,
-      counterspell: 4, mana_drain: 2, unsummon: 3, psionic_blast: 3, control_magic: 2, ancestral_recall: 1, braingeyser: 1, time_walk: 1, sol_ring: 1,
+      prodigal_sorcerer: 3, giant_tortoise: 3, merfolk_of_the_pearl_trident: 2, phantom_monster: 3, serendib_efreet: 2, air_elemental: 2, mahamoti_djinn: 2, wall_of_air: 2,
+      counterspell: 2, mana_drain: 1, unsummon: 3, psionic_blast: 2, control_magic: 1, ancestral_recall: 1, braingeyser: 1, time_walk: 1, flight: 2, storm_crow: 3,
     },
   },
 
@@ -151,8 +151,8 @@ export const DECKS = {
     name: "Knight's Crusade",
     cards: {
       plains: 22, savannah: 1, plateau: 1,
-      savannah_lions: 3, white_knight: 4, tundra_wolves: 2, thunder_spirit: 2, northern_paladin: 2, moorish_cavalry: 3, serra_angel: 3,
-      samite_healer: 1, crusade: 2, holy_strength: 2, swords_to_plowshares: 4, righteousness: 2, disenchant: 2, army_of_allah: 2, wrath_of_god: 1, moat: 1,
+      savannah_lions: 3, white_knight: 3, tundra_wolves: 2, pearled_unicorn: 2, thunder_spirit: 2, northern_paladin: 2, moorish_cavalry: 3, serra_angel: 3,
+      samite_healer: 1, crusade: 2, holy_strength: 2, swords_to_plowshares: 2, righteousness: 2, disenchant: 2, army_of_allah: 2, wrath_of_god: 1, moat: 1, healing_salve: 2,
     },
   },
 
@@ -195,9 +195,9 @@ export const DECKS = {
     name: "Mishra's Workshop",
     cards: {
       island: 11, mountain: 11, volcanic_island: 1, strip_mine: 1,
-      ornithopter: 3, dragon_engine: 3, clay_statue: 3, juggernaut: 4, obsianus_golem: 2, sol_ring: 1, fellwar_stone: 3,
-      icy_manipulator: 2, rod_of_ruin: 2, jayemdae_tome: 1, millstone: 1, howling_mine: 1,
-      counterspell: 2, lightning_bolt: 4, unsummon: 2, shatter: 1, prodigal_sorcerer: 1,
+      ornithopter: 2, dragon_engine: 3, clay_statue: 3, juggernaut: 4, obsianus_golem: 2, sol_ring: 1, fellwar_stone: 1,
+      icy_manipulator: 2, rod_of_ruin: 1, jayemdae_tome: 1, prodigal_sorcerer: 3, orcish_artillery: 2,
+      counterspell: 3, lightning_bolt: 4, unsummon: 2, shatter: 1, air_elemental: 1,
     },
   },
 
@@ -215,9 +215,9 @@ export const DECKS = {
     name: 'Brothers War',
     cards: {
       swamp: 9, mountain: 9, badlands: 3, strip_mine: 1, mox_jet: 1, mox_ruby: 1,
-      juzam_djinn: 3, ball_lightning: 2, juggernaut: 3, hypnotic_specter: 3, black_knight: 2, sengir_vampire: 2,
-      orcish_artillery: 1, dark_ritual: 3, lightning_bolt: 4, chain_lightning: 2, terror: 3, fireball: 2,
-      sinkhole: 2, demonic_tutor: 1, mind_twist: 1, rod_of_ruin: 1, black_lotus: 1,
+      juzam_djinn: 3, ball_lightning: 2, juggernaut: 3, hypnotic_specter: 4, black_knight: 2, sengir_vampire: 3,
+      orcish_artillery: 1, dark_ritual: 2, lightning_bolt: 4, chain_lightning: 2, terror: 3, fireball: 2,
+      sinkhole: 1, demonic_tutor: 1, mind_twist: 1, royal_assassin: 1,
     },
   },
   bolas: {

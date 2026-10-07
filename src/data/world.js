@@ -208,7 +208,7 @@ export const NPCS = {
   },
   nissa: {
     name: 'NISSA', fullName: 'NISSA REVANE', portrait: 'nissa', sprite: SPR.nissa, pos: [4, 2], face: 'down', master: true, medal: 'G',
-    deck: 'mana_ramp', deckName: 'MANA RAMP DECK', skill: 0.85, music: 'boss',
+    deck: 'mana_ramp', deckName: 'MANA RAMP DECK', skill: 0.9, music: 'boss',
     prize: { packs: ['LEA', 'LEA', 'LEA'], gold: 150, cards: ['birds_of_paradise'] }, rematch: { packs: ['LEA', 'LEA'], gold: 60 },
     requires: (save) => (beat(save, 'elm') && beat(save, 'bo') ? null : 'THE FOREST TESTS ALL WHO ENTER. DEFEAT MY CLUB MEMBERS, THEN COME TO ME.'),
     intro: ['I AM NISSA REVANE, MASTER OF THE FOREST CLUB.', 'THE LAND ITSELF IS MY ALLY. SHOW ME YOUR STRENGTH!'],
@@ -246,7 +246,7 @@ export const NPCS = {
   // ------------------------------------------------------------ Island Club
   finn: {
     name: 'SAILOR FINN', portrait: 'sailor', sprite: SPR.blue, pos: [1, 5], face: 'right',
-    deck: 'merfolk_tide', deckName: 'MERFOLK TIDE', skill: 0.4,
+    deck: 'merfolk_tide', deckName: 'MERFOLK TIDE', skill: 0.35,
     prize: { packs: ['LEG', 'LEG'], gold: 60 }, rematch: { packs: ['LEG'], gold: 30 },
     intro: ['AHOY! THE MERFOLK OF ATLANTIS SAIL WITH ME!'],
     win: ['SUNK! YOU SAILED RIGHT PAST MY FLEET.'],
@@ -254,7 +254,7 @@ export const NPCS = {
   },
   lin: {
     name: 'CAPTAIN LIN', portrait: 'glasses', sprite: SPR.blue, pos: [8, 5], face: 'left',
-    deck: 'sky_patrol', deckName: 'SKY PATROL', skill: 0.55,
+    deck: 'sky_patrol', deckName: 'SKY PATROL', skill: 0.45,
     prize: { packs: ['LEG', 'LEG'], gold: 60 }, rematch: { packs: ['LEG'], gold: 30 },
     intro: ['GROUND CREATURES ARE SO... GROUNDED. MY DECK FLIES.'],
     win: ['GROUNDED. HOW EMBARRASSING.'],
