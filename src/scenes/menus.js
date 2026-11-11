@@ -11,8 +11,9 @@ import { CARDS, cardColor } from '../data/cards.js';
 import { STARTERS, deckSize } from '../data/decks.js';
 import { PACKS, openPack } from '../data/sets.js';
 import { MEDALS } from '../data/world.js';
+import { RECIPES, recipeUnlocked, recipeLockText, recipeMissing, cardSources } from '../data/recipes.js';
 import { manaValue } from '../engine/mana.js';
-import { TextBox } from '../ui.js';
+import { TextBox, setTextSpeed } from '../ui.js';
 import { CardDetail, CardList } from './cardscreens.js';
 import { addCards, owned, deckCount, deckProblem, writeSave } from '../save.js';
 import { playMusic, sfx, audioSettings } from '../audio.js';
@@ -86,12 +87,14 @@ const HELP_PAGES = [
   ['CONTROLS', 'D-PAD  MOVE AND CHOOSE', 'A      OK, TALK, CAST', 'B      BACK, CANCEL', 'START  MENU', 'SELECT CARD INFO', '', 'KEYBOARD: ARROWS, Z=A,', 'X=B, ENTER=START,', 'SHIFT=SELECT'],
   ['THE GOAL', 'EACH PLAYER STARTS WITH', '20 LIFE. BRING YOUR', "OPPONENT'S LIFE TO 0 TO", 'WIN THE DUEL.', '', 'IF YOU MUST DRAW FROM AN', 'EMPTY LIBRARY, YOU LOSE.'],
   ['YOUR TURN', 'BEGINNING: UNTAP, DRAW', 'MAIN 1: PLAY A LAND AND', '  CAST SPELLS', 'COMBAT: ATTACK WITH', '  YOUR CREATURES', 'MAIN 2: CAST MORE SPELLS', 'END: DISCARD DOWN TO 7'],
-  ['THE BOARD', 'OPPONENT TOP, YOU BOTTOM.', 'THE COLUMNS COUNT EACH', "PLAYER'S HAND, GRAVEYARD,", 'LIBRARY AND EXILE.', 'THE D20 IS LIFE. SMALL', 'CARDS ARE PERMANENTS;', 'BATTLEFIELD SHOWS THEM.'],
+  ['THE BOARD', 'OPPONENT TOP, YOU BOTTOM.', 'THE COLUMNS COUNT EACH', "PLAYER'S HAND, GRAVEYARD,", 'LIBRARY AND EXILE.', 'THE D20 IS LIFE. SMALL', 'CARDS ARE PERMANENTS.', 'SIDEWAYS = TAPPED.'],
+  ['READING CARDS', 'BATTLEFIELD: MOVE THE', 'CURSOR TO SEE A CARD\'S', 'POWER, TOUGHNESS AND', 'STATUS. SELECT: FULL TEXT.', 'IN PLAY LISTS EVERYTHING.', 'HATCHED CARD = SUMMONING', 'SICK.  WINGS = FLYING.'],
   ['MANA', 'LANDS TAP FOR MANA OF', 'THEIR COLOR: {W}{U}{B}{R}{G}.', 'A COST LIKE {2}{R} NEEDS', 'ONE RED AND TWO MORE OF', 'ANY KIND. YOUR LANDS ARE', 'TAPPED FOR YOU WHEN YOU', 'CAST. ONE LAND PER TURN.'],
   ['CREATURES', 'PT 2/3 = POWER 2,', 'TOUGHNESS 3. DAMAGE EQUAL', 'TO TOUGHNESS DESTROYS IT.', 'NEW CREATURES CAN\'T', 'ATTACK RIGHT AWAY.', 'UNTAPPED CREATURES CAN', 'BLOCK ATTACKERS.'],
   ['KEYWORDS', 'FLY: ONLY FLYERS OR REACH', '  CAN BLOCK IT', '1ST: FIRST STRIKE', 'TRM: TRAMPLE', 'HST: HASTE', 'VIG: VIGILANCE', 'DEF: DEFENDER, CAN\'T ATTACK'],
   ['SPELLS', 'SORCERIES: ONLY IN YOUR', '  MAIN PHASE.', 'INSTANTS: ANY TIME YOU', '  CAN RESPOND.', 'ENCHANTMENTS, ARTIFACTS', 'AND CREATURES STAY ON', 'THE BATTLEFIELD.'],
   ['DECKS', 'A DECK IS EXACTLY 60', 'CARDS. NO MORE THAN 4', 'COPIES OF A CARD. BASIC', 'LANDS ARE FREE.', 'WIN DUELS FOR BOOSTER', 'PACKS AND BUILD BETTER', 'DECKS FROM THE MENU.'],
+  ['THE GRIMOIRE', 'EDIT: LEFT/RIGHT CHANGES', 'THE FILTER. NEW SHOWS', 'CARDS YOU JUST GOT, DECK', 'SHOWS THE DECK, FIT SHOWS', "CARDS IN THE DECK'S COLORS.", 'RECIPE: COPY A FAMOUS DECK', 'LIST, MEDALS UNLOCK MORE.'],
 ];
 
 export class HelpScene {
@@ -140,14 +143,17 @@ export class OptionsScene {
     for (;;) {
       const speeds = ['SLOW', 'NORMAL', 'FAST'];
       const sp = st.textSpeed >= 4 ? 2 : st.textSpeed >= 2 ? 1 : 0;
-      const opts = [`MUSIC: ${st.music ? 'ON' : 'OFF'}`, `SOUND: ${st.sfx ? 'ON' : 'OFF'}`, `TEXT: ${speeds[sp]}`, 'DONE'];
+      const opts = [`MUSIC: ${st.music ? 'ON' : 'OFF'}`, `SOUND: ${st.sfx ? 'ON' : 'OFF'}`, `TEXT: ${speeds[sp]}`, `DUELS: ${st.quickDuels ? 'QUICK' : 'NORMAL'}`, 'DONE'];
       const i = await this.box.choose(opts, { cols: 1, start: cur, prompt: 'OPTIONS' });
       cur = Math.max(0, i);
       if (i === 0) st.music = !st.music;
       else if (i === 1) st.sfx = !st.sfx;
       else if (i === 2) st.textSpeed = [1, 2, 4][(sp + 1) % 3];
+      else if (i === 3) st.quickDuels = !st.quickDuels;
       else return;
       audioSettings({ music: st.music, sfx: st.sfx });
+      setTextSpeed(st.textSpeed);
+      this.box.speed = st.textSpeed;
     }
   }
   draw(ctx) {
@@ -313,12 +319,32 @@ export class BoosterScene {
         this.card = CARDS[id];
         this.isNew = fresh;
         sfx(fresh ? 'coin' : 'card');
-        await this.box.say(`${CARDS[id].name.toUpperCase()}${fresh ? ' (NEW!)' : ''}`, { wait: true, speed: 4 });
+        // SELECT opens the full card; A/B moves on
+        for (;;) {
+          const b = await this.reveal(`${CARDS[id].name.toUpperCase()}${fresh ? ' (NEW!)' : ''}`);
+          if (b !== 'select') break;
+          sfx('select');
+          await app.run(new CardDetail([CARDS[id]]));
+        }
       }
       this.mode = 'list';
       this.list = pack.ids;
-      await this.box.say('THE CARDS WERE ADDED TO YOUR COLLECTION.', { wait: true });
+      await this.box.say('THE CARDS WERE ADDED TO YOUR COLLECTION. A: LOOK THEM OVER.', { wait: true });
+      // browse the pack: CHECK shows cost and rules text
+      const items = pack.ids.map((id, i) => ({ def: CARDS[id], right: pack.fresh[i] ? 'NEW' : '' }));
+      await app.run(new CardList({ title: `${PACKS[pack.set].short} PACK`, items, prompt: 'SELECT A CARD', actions: () => ['CHECK', 'BACK'] }));
     }
+  }
+
+  // Type a line, then wait for A, B or SELECT; returns the button.
+  async reveal(text) {
+    const app = this.box.app;
+    await this.box.say(text, { hold: 0, speed: 4 });
+    this.box.arrow = true;
+    const b = await app.press(['a', 'b', 'select']);
+    this.box.arrow = false;
+    if (b !== 'select') sfx('blip');
+    return b;
   }
   draw(ctx, app) {
     fill(ctx, C.bg);
@@ -328,6 +354,10 @@ export class BoosterScene {
       if (this.isNew && Math.floor(this.t / 15) % 2 === 0) drawTextOutline(ctx, 'NEW!', 126, 10, C.yellow, C.ink);
       const rar = this.card.rarity;
       drawText(ctx, rar === 'R' ? '★ RARE' : rar === 'U' ? 'UNCOMMON' : 'COMMON', 112, 86, rar === 'R' ? C.orange : C.greyDark);
+      const cost = manaSymbols(this.card.cost);
+      if (cost) drawText(ctx, cost, 6, 10, C.ink);
+      if (this.card.type.includes('Creature')) drawText(ctx, `${this.card.power}/${this.card.toughness}`, 6, 86, C.ink);
+      drawText(ctx, 'SEL:INFO', 6, 22, C.greyDark);
     }
     if (this.mode === 'list' && this.list) {
       frame(ctx, 0, 0, 160, 96);
@@ -389,7 +419,9 @@ export class ShopScene {
       this.cursorSet = sets[cur];
       const opts = [...sets.map((s) => `${PACKS[s].short} ${PACKS[s].price}G`), 'LEAVE'];
       this.box.rect = { x: 0, y: 0, w: 96, h: opts.length * 12 + 16 };
+      this.showInfo = true;
       const i = await this.box.choose(opts, { cols: 1, start: cur, onMove: (k) => (this.cursorSet = sets[k] || null) });
+      this.showInfo = false;
       this.box.rect = { x: 0, y: 96, w: 160, h: 48 };
       if (i < 0 || i === sets.length) {
         await this.box.say('COME BACK ANYTIME!', { hold: 20 });
@@ -398,6 +430,15 @@ export class ShopScene {
       cur = i;
       const set = sets[i];
       const price = PACKS[set].price;
+      // what's in it, with a few sample cards to look at
+      await this.box.say(PACKS[set].blurb, { wait: true });
+      const peek = await this.box.choose(['BUY', 'SAMPLES', 'BACK'], { cols: 3, colWidth: 46, prompt: `${PACKS[set].name}, ${price}G` });
+      if (peek === 1) {
+        const items = PACKS[set].sample.map((id) => ({ def: CARDS[id], right: this.save.collection[id] ? `×${this.save.collection[id]}` : '' }));
+        await app.run(new CardList({ title: `${PACKS[set].short}: SAMPLES`, items, prompt: 'SOME CARDS IN THIS SET', actions: () => ['CHECK', 'BACK'] }));
+        continue;
+      }
+      if (peek !== 0) continue;
       if (this.save.gold < price) {
         sfx('error');
         await this.box.say("YOU DON'T HAVE ENOUGH GOLD.", { wait: true });
@@ -418,6 +459,10 @@ export class ShopScene {
     if (this.cursorSet) drawPack(ctx, 128, 46, this.cursorSet, app.frameCount);
     frame(ctx, 100, 2, 58, 16);
     drawTextRight(ctx, `${this.save.gold}G`, 150, 7, C.ink);
+    if (this.showInfo && this.cursorSet) {
+      frame(ctx, 0, 100, 160, 44);
+      wrap(PACKS[this.cursorSet].blurb, 144).slice(0, 3).forEach((l, i) => drawText(ctx, l, 8, 108 + i * 10, C.ink));
+    }
     this.box.draw(ctx);
   }
 }
@@ -486,9 +531,14 @@ export class DeckSlots {
       cur = i;
       const deck = s.decks[i];
       const problem = deckProblem(s, deck.cards);
-      const act = await this.box.choose(['EDIT', 'USE', 'RENAME', 'CLEAR'], { cols: 2, prompt: deck.name.toUpperCase() });
+      const act = await this.box.choose(['EDIT', 'USE', 'RECIPE', 'RENAME', 'CLEAR'], { cols: 3, colWidth: 48, prompt: deck.name.toUpperCase() });
       if (act === 0) {
         await app.run(new DeckEditor(s, deck));
+      } else if (act === 2) {
+        if (i === s.activeDeck && deckCount(deck.cards)) {
+          sfx('error');
+          await this.box.say("YOU CAN'T REPLACE THE DECK YOU'RE USING. PICK ANOTHER SLOT.", { wait: true });
+        } else await app.run(new RecipeScene(s, deck));
       } else if (act === 1) {
         if (problem) {
           sfx('error');
@@ -498,10 +548,10 @@ export class DeckSlots {
           sfx('select');
           await this.box.say(`YOU WILL DUEL WITH ${deck.name.toUpperCase()}.`, { wait: true });
         }
-      } else if (act === 2) {
+      } else if (act === 3) {
         const name = await app.run(new NameEntry('DECK NAME?', deck.name.toUpperCase().slice(0, 12), 12));
         deck.name = name;
-      } else if (act === 3) {
+      } else if (act === 4) {
         if (i === s.activeDeck) {
           sfx('error');
           await this.box.say("YOU CAN'T CLEAR THE DECK YOU'RE USING.", { wait: true });
@@ -521,13 +571,51 @@ export class DeckSlots {
   }
 }
 
-const TABS = ['ALL', 'W', 'U', 'B', 'R', 'G', 'ART', 'LAND'];
+const TABS = ['ALL', 'NEW', 'DECK', 'FIT', 'W', 'U', 'B', 'R', 'G', 'ART', 'LAND'];
+const TAB_HELP = {
+  ALL: 'ALL YOUR CARDS',
+  NEW: 'JUST RECEIVED',
+  DECK: 'IN THIS DECK',
+  FIT: "DECK'S COLORS",
+  W: 'WHITE CARDS',
+  U: 'BLUE CARDS',
+  B: 'BLACK CARDS',
+  R: 'RED CARDS',
+  G: 'GREEN CARDS',
+  ART: 'ARTIFACTS',
+  LAND: 'LANDS',
+};
 
 function sortKey(d) {
   const order = { W: 0, U: 1, B: 2, R: 3, G: 4, M: 5, A: 6, L: 7 };
   const ck = cardColor(d);
   const land = d.type.includes('Land');
   return [land ? 9 : order[ck] ?? 8, land ? 0 : manaValue(d.cost), d.name];
+}
+
+// The colors a deck is built around: those of its spells, or of its lands.
+export function deckColors(cards) {
+  const spells = new Set();
+  const lands = new Set();
+  for (const [id, n] of Object.entries(cards)) {
+    if (!n || !CARDS[id]) continue;
+    const d = CARDS[id];
+    if (d.type.includes('Land')) {
+      if (Array.isArray(d.mana?.colors)) for (const c of d.mana.colors) if (c !== 'C') lands.add(c);
+    } else for (const c of 'WUBRG') if ((d.cost || '').includes(c)) spells.add(c);
+  }
+  const out = spells.size ? spells : lands;
+  return 'WUBRG'.split('').filter((c) => out.has(c));
+}
+
+function fitsColors(d, colors) {
+  if (d.type.includes('Land')) {
+    if (!Array.isArray(d.mana?.colors)) return true;
+    const own = d.mana.colors.filter((c) => c !== 'C');
+    return !own.length || own.every((c) => colors.includes(c));
+  }
+  for (const c of 'WUBRG') if ((d.cost || '').includes(c) && !colors.includes(c)) return false;
+  return true;
 }
 
 export class DeckEditor {
@@ -539,17 +627,22 @@ export class DeckEditor {
     this.cur = 0;
     this.top = 0;
     this.rows = 5;
+    this.sawNew = false;
     this.refresh();
   }
 
   refresh() {
     const t = TABS[this.tab];
+    const colors = deckColors(this.cards);
     const ids = Object.keys(CARDS).filter((id) => {
       const d = CARDS[id];
       if (!d.basic && !this.save.collection[id] && !this.cards[id]) return false;
       const ck = cardColor(d);
       const land = d.type.includes('Land');
       if (t === 'ALL') return true;
+      if (t === 'NEW') return !!(this.save.recent && this.save.recent[id]);
+      if (t === 'DECK') return !!this.cards[id];
+      if (t === 'FIT') return fitsColors(d, colors);
       if (t === 'LAND') return land;
       if (land) return false;
       if (t === 'ART') return ck === 'A';
@@ -563,6 +656,7 @@ export class DeckEditor {
     });
     this.ids = ids;
     this.cur = Math.min(this.cur, Math.max(0, ids.length - 1));
+    if (t === 'NEW') this.sawNew = true;
   }
 
   async run(app) {
@@ -570,55 +664,67 @@ export class DeckEditor {
     this.box = new TextBox(app);
     this.box.rect = { x: 0, y: 96, w: 96, h: 48 };
     this.message = null;
-    for (;;) {
-      const b = await app.press(['up', 'down', 'left', 'right', 'a', 'b', 'start', 'select']);
-      const n = this.ids.length;
-      this.message = null;
-      if (b === 'up' && this.cur > 0) {
-        this.cur--;
-        sfx('cursor');
-      } else if (b === 'down' && this.cur < n - 1) {
-        this.cur++;
-        sfx('cursor');
-      } else if (b === 'left' || b === 'right') {
-        this.tab = (this.tab + (b === 'left' ? TABS.length - 1 : 1)) % TABS.length;
-        this.cur = 0;
-        this.top = 0;
-        this.refresh();
-        sfx('cursor');
-      } else if (b === 'a' && n) {
-        const id = this.ids[this.cur];
-        const have = this.cards[id] || 0;
-        const d = CARDS[id];
-        if (!d.basic && have >= 4) {
-          sfx('error');
-          this.message = 'MAX 4 COPIES';
-        } else if (have >= owned(this.save, id)) {
-          sfx('error');
-          this.message = 'NO MORE COPIES';
-        } else {
-          this.cards[id] = have + 1;
-          sfx('blip');
-        }
-      } else if (b === 'b' && n) {
-        const id = this.ids[this.cur];
-        if (this.cards[id]) {
-          this.cards[id]--;
-          if (!this.cards[id]) delete this.cards[id];
-          sfx('back');
-        } else {
-          // B on a card you don't have in the deck = leave
+    try {
+      for (;;) {
+        const b = await app.press(['up', 'down', 'left', 'right', 'a', 'b', 'start', 'select']);
+        const n = this.ids.length;
+        this.message = null;
+        if (b === 'up' && this.cur > 0) {
+          this.cur--;
+          sfx('cursor');
+        } else if (b === 'down' && this.cur < n - 1) {
+          this.cur++;
+          sfx('cursor');
+        } else if (b === 'left' || b === 'right') {
+          this.tab = (this.tab + (b === 'left' ? TABS.length - 1 : 1)) % TABS.length;
+          this.cur = 0;
+          this.top = 0;
+          this.refresh();
+          sfx('cursor');
+        } else if (b === 'a' && n) {
+          const id = this.ids[this.cur];
+          const have = this.cards[id] || 0;
+          const d = CARDS[id];
+          if (!d.basic && have >= 4) {
+            sfx('error');
+            this.message = 'MAX 4 COPIES';
+          } else if (have >= owned(this.save, id)) {
+            sfx('error');
+            this.message = 'NO MORE COPIES';
+          } else {
+            this.cards[id] = have + 1;
+            sfx('blip');
+            if (TABS[this.tab] === 'FIT' || TABS[this.tab] === 'DECK') this.refresh();
+          }
+        } else if (b === 'b' && n) {
+          const id = this.ids[this.cur];
+          if (this.cards[id]) {
+            this.cards[id]--;
+            if (!this.cards[id]) delete this.cards[id];
+            sfx('back');
+            if (TABS[this.tab] === 'DECK' || TABS[this.tab] === 'FIT') {
+              // the row may vanish; keep the cursor on the same spot
+              const keep = this.cur;
+              this.refresh();
+              this.cur = Math.min(keep, Math.max(0, this.ids.length - 1));
+            }
+          } else {
+            // B on a card you don't have in the deck = leave
+            if (await this.finish()) return;
+          }
+        } else if (b === 'b') {
+          if (await this.finish()) return;
+        } else if (b === 'select' && n) {
+          await app.run(new CardDetail(this.ids.map((id) => CARDS[id]), this.cur));
+        } else if (b === 'start') {
           if (await this.finish()) return;
         }
-      } else if (b === 'b') {
-        if (await this.finish()) return;
-      } else if (b === 'select' && n) {
-        await app.run(new CardDetail(this.ids.map((id) => CARDS[id]), this.cur));
-      } else if (b === 'start') {
-        if (await this.finish()) return;
+        if (this.cur < this.top) this.top = this.cur;
+        if (this.cur >= this.top + this.rows) this.top = this.cur - this.rows + 1;
       }
-      if (this.cur < this.top) this.top = this.cur;
-      if (this.cur >= this.top + this.rows) this.top = this.cur - this.rows + 1;
+    } finally {
+      // once the new cards have been looked at, they stop being "new"
+      if (this.sawNew) this.save.recent = {};
     }
   }
 
@@ -642,20 +748,32 @@ export class DeckEditor {
   draw(ctx, app) {
     fill(ctx, C.bg);
     frame(ctx, 0, 0, 160, 96);
-    // tabs
-    let tx = 6;
+    // tab strip: scrolls so the current tab is always visible
+    const widths = TABS.map((t) => (t.length === 1 ? 8 : measure(t)));
+    const gap = 4;
+    const avail = 136;
+    let offset = 0;
+    const startOf = (i) => widths.slice(0, i).reduce((a, w) => a + w + gap, 0);
+    const endOf = (i) => startOf(i) + widths[i];
+    if (endOf(this.tab) > avail) offset = endOf(this.tab) - avail;
+    const x0 = 12 - offset;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(12, 3, avail, 12);
+    ctx.clip();
     TABS.forEach((t, i) => {
+      const tx = x0 + startOf(i);
+      const w = widths[i];
       const label = t.length === 1 ? `{${t}}` : t;
-      const w = t.length === 1 ? 8 : measure(t);
       if (i === this.tab) {
         fill(ctx, C.ink, tx - 1, 4, w + 2, 9);
         if (t.length > 1) drawText(ctx, t, tx, 5, C.white);
         else drawText(ctx, label, tx, 5);
       } else drawText(ctx, label, tx, 5, C.greyDark);
-      tx += w + 4;
     });
-    const n = deckCount(this.cards);
-    drawTextRight(ctx, `${n}/60`, 153, 5, n === 60 ? C.green : n > 60 ? C.red : C.ink);
+    ctx.restore();
+    ctx.drawImage(icon('arrowLeft'), 4, 6);
+    ctx.drawImage(icon('arrowRight'), 151, 6);
     for (let i = 0; i < this.rows; i++) {
       const idx = this.top + i;
       if (idx >= this.ids.length) break;
@@ -664,28 +782,180 @@ export class DeckEditor {
       const y = 18 + i * 15;
       ctx.drawImage(typeIcon(d, cardColor(d)), 13, y - 2);
       let name = d.name.toUpperCase();
-      while (measure(name) > 84) name = name.slice(0, -1);
+      while (measure(name) > 96) name = name.slice(0, -1);
       drawText(ctx, name, 27, y, C.ink);
       const inDeck = this.cards[id] || 0;
       const have = d.basic ? '·' : String(owned(this.save, id));
+      // copy counts get their own column
       drawTextRight(ctx, `${inDeck}/${d.basic ? '-' : have}`, 152, y, inDeck ? C.ink : C.greyDark);
+      if (this.save.recent && this.save.recent[id] && TABS[this.tab] !== 'NEW') drawText(ctx, '★', 5, y, C.orange);
       if (idx === this.cur) ctx.drawImage(icon('cursor'), 6, y);
     }
+    if (!this.ids.length) drawText(ctx, TABS[this.tab] === 'NEW' ? 'NO NEW CARDS.' : 'NO CARDS HERE.', 20, 40, C.greyDark);
     if (this.top + this.rows < this.ids.length) ctx.drawImage(icon('arrowDown'), 78, 90);
     if (this.top > 0) ctx.drawImage(icon('arrowUp'), 78, 13);
     if (this.box.mode) this.box.draw(ctx);
     else {
       frame(ctx, 0, 96, 96, 48);
-      if (this.message) drawText(ctx, this.message, 8, 108, C.red);
-      else {
-        drawText(ctx, 'A:ADD  B:DEL', 8, 106, C.ink);
-        drawText(ctx, 'SEL:CHECK', 8, 116, C.ink);
-        drawText(ctx, 'START:DONE', 8, 126, C.ink);
-      }
+      const n = deckCount(this.cards);
+      const cols = deckColors(this.cards).map((c) => `{${c}}`).join('');
+      drawText(ctx, `${n}/60`, 8, 101, n === 60 ? C.green : n > 60 ? C.red : C.ink);
+      if (cols) drawText(ctx, cols, 40, 101, C.ink);
+      if (this.message) drawText(ctx, this.message, 8, 111, C.red);
+      else drawText(ctx, TAB_HELP[TABS[this.tab]], 8, 111, C.greyDark);
+      drawText(ctx, 'A:ADD  B:DEL', 8, 121, C.ink);
+      drawText(ctx, 'SEL:INFO ST:DONE', 8, 131, C.ink);
     }
     const id = this.ids[this.cur];
     fill(ctx, C.bg, 96, 96, 64, 48);
     if (id) ctx.drawImage(cardArt(CARDS[id]), 96, 96);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Deck recipes (the "auto deck machine")
+
+export class RecipeScene {
+  constructor(save, deck) {
+    this.save = save;
+    this.deck = deck;
+    this.cur = 0;
+    this.top = 0;
+    this.rows = 5;
+  }
+
+  status(r) {
+    if (!recipeUnlocked(r, this.save)) return { text: 'LOCKED', color: C.grey };
+    const missing = recipeMissing(r, this.save);
+    const n = missing.reduce((a, m) => a + (m.need - m.have), 0);
+    if (!n) return { text: 'READY', color: C.green };
+    return { text: `${n} MISSING`, color: C.orange };
+  }
+
+  async run(app) {
+    this.box = new TextBox(app);
+    this.box.rect = { x: 0, y: 96, w: 160, h: 48 };
+    for (;;) {
+      this.box.clear();
+      const b = await app.press(['up', 'down', 'left', 'right', 'a', 'b', 'start']);
+      const n = RECIPES.length;
+      if (b === 'up' && this.cur > 0) {
+        this.cur--;
+        sfx('cursor');
+      } else if (b === 'down' && this.cur < n - 1) {
+        this.cur++;
+        sfx('cursor');
+      } else if (b === 'left') {
+        this.cur = Math.max(0, this.cur - this.rows);
+        sfx('cursor');
+      } else if (b === 'right') {
+        this.cur = Math.min(n - 1, this.cur + this.rows);
+        sfx('cursor');
+      } else if (b === 'b' || b === 'start') {
+        sfx('back');
+        return;
+      } else if (b === 'a') {
+        sfx('select');
+        const r = RECIPES[this.cur];
+        if (!recipeUnlocked(r, this.save)) {
+          await this.box.say(`THIS RECIPE UNLOCKS WITH THE ${recipeLockText(r)}.`, { wait: true });
+        } else if (await this.open(app, r)) return;
+      }
+      if (this.cur < this.top) this.top = this.cur;
+      if (this.cur >= this.top + this.rows) this.top = this.cur - this.rows + 1;
+    }
+  }
+
+  // One recipe: look at its cards and where to get the missing ones, or build it.
+  async open(app, r) {
+    for (;;) {
+      const missing = recipeMissing(r, this.save);
+      const short = missing.reduce((a, m) => a + (m.need - m.have), 0);
+      const i = await this.box.choose(['CARDS', 'BUILD', 'BACK'], { cols: 3, colWidth: 46, prompt: `${r.name}: ${short ? `${short} MISSING` : 'READY'}` });
+      if (i < 0 || i === 2) return false;
+      if (i === 0) {
+        const ids = Object.keys(r.cards).sort((a, b) => {
+          const ka = sortKey(CARDS[a]);
+          const kb = sortKey(CARDS[b]);
+          for (let k = 0; k < ka.length; k++) if (ka[k] !== kb[k]) return ka[k] < kb[k] ? -1 : 1;
+          return 0;
+        });
+        const items = ids.map((id) => {
+          const d = CARDS[id];
+          const need = r.cards[id];
+          const have = d.basic ? need : Math.min(need, this.save.collection[id] || 0);
+          return { def: d, id, right: `${have}/${need}`, dim: have < need, tag: have < need ? '!' : null };
+        });
+        await app.run(
+          new CardList({
+            title: r.name,
+            items,
+            prompt: `${short ? `${short} CARDS MISSING` : 'YOU HAVE THEM ALL'}`,
+            actions: (it) => (it.dim ? ['CHECK', 'BACK', 'WHERE'] : ['CHECK', 'BACK']),
+            handle: async (it, label, idx, list) => {
+              if (label !== 'WHERE') return undefined;
+              list.box.rect = { x: 0, y: 96, w: 160, h: 48 };
+              const src = cardSources(it.id);
+              await list.box.say(`${it.def.name.toUpperCase()}: ${src.length ? src.join('. ') : 'NOT AVAILABLE'}.`, { wait: true });
+              list.box.rect = { x: 0, y: 96, w: 96, h: 48 };
+              return undefined;
+            },
+          }),
+        );
+        continue;
+      }
+      // build it
+      const current = deckCount(this.deck.cards);
+      if (current) {
+        const ok = await this.box.choose(['YES', 'NO'], { cols: 2, prompt: `REPLACE ${this.deck.name.toUpperCase()}?`, start: 1 });
+        if (ok !== 0) continue;
+      }
+      if (short) {
+        const ok = await this.box.choose(['YES', 'NO'], { cols: 2, prompt: `BUILD IT WITH WHAT YOU OWN? ${short} CARDS WILL BE MISSING.`, start: 1 });
+        if (ok !== 0) continue;
+      }
+      const cards = {};
+      for (const [id, need] of Object.entries(r.cards)) {
+        const have = CARDS[id].basic ? need : Math.min(need, this.save.collection[id] || 0);
+        if (have) cards[id] = have;
+      }
+      this.deck.cards = cards;
+      this.deck.name = r.name.toUpperCase().slice(0, 12);
+      sfx('coin');
+      await this.box.say(short ? `BUILT ${r.name.toUpperCase()} WITH ${deckCount(cards)} CARDS. FILL IT UP IN EDIT.` : `BUILT ${r.name.toUpperCase()}! IT'S READY TO USE.`, { wait: true });
+      return true;
+    }
+  }
+
+  draw(ctx, app) {
+    fill(ctx, C.bg);
+    frame(ctx, 0, 0, 160, 96);
+    drawText(ctx, 'DECK RECIPES', 8, 6, C.ink);
+    drawTextRight(ctx, `${this.cur + 1}/ ${RECIPES.length}`, 152, 6, C.ink);
+    for (let i = 0; i < this.rows; i++) {
+      const idx = this.top + i;
+      if (idx >= RECIPES.length) break;
+      const r = RECIPES[idx];
+      const y = 17 + i * 15;
+      const st = this.status(r);
+      const colors = deckColors(r.cards);
+      drawText(ctx, colors.map((c) => `{${c}}`).join(''), 13, y, C.ink);
+      let name = r.name.toUpperCase();
+      while (measure(name) > 70) name = name.slice(0, -1);
+      drawText(ctx, name, 13 + colors.length * 8 + 2, y, st.text === 'LOCKED' ? C.grey : C.ink);
+      drawTextRight(ctx, st.text, 152, y, st.color);
+      if (idx === this.cur) ctx.drawImage(icon('cursor'), 6, y);
+    }
+    if (this.top + this.rows < RECIPES.length) ctx.drawImage(icon('arrowDown'), 78, 89);
+    if (this.top > 0) ctx.drawImage(icon('arrowUp'), 78, 13);
+    if (this.box.mode) this.box.draw(ctx);
+    else {
+      frame(ctx, 0, 96, 160, 48);
+      const r = RECIPES[this.cur];
+      const text = recipeUnlocked(r, this.save) ? r.blurb : `UNLOCK: ${recipeLockText(r)}.`;
+      wrap(text, 144).slice(0, 2).forEach((l, i) => drawText(ctx, l, 8, 106 + i * 10, C.ink));
+      drawText(ctx, 'A:OPEN  B:BACK', 8, 128, C.greyDark);
+    }
   }
 }
 

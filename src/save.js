@@ -18,7 +18,8 @@ export function newSave(name) {
     flags: {},
     location: 'academy',
     stats: { wins: 0, losses: 0, packs: 0 },
-    settings: { music: true, sfx: true, textSpeed: 2 },
+    settings: { music: true, sfx: true, textSpeed: 2, quickDuels: false },
+    recent: {}, // card ids received since the deck editor was last used
     started: Date.now(),
     playTime: 0,
   };
@@ -30,6 +31,8 @@ export function loadSave() {
     if (!raw) return null;
     const s = JSON.parse(raw);
     if (!s || s.version !== 1) return null;
+    if (!s.recent) s.recent = {};
+    if (s.settings.quickDuels === undefined) s.settings.quickDuels = false;
     // drop unknown cards (database changes)
     for (const id of Object.keys(s.collection)) if (!CARDS[id]) delete s.collection[id];
     for (const d of s.decks) for (const id of Object.keys(d.cards)) if (!CARDS[id]) delete d.cards[id];
@@ -68,6 +71,7 @@ export function addCards(save, ids) {
     if (CARDS[id].basic) continue;
     if (!save.collection[id]) fresh.push(id);
     save.collection[id] = (save.collection[id] || 0) + 1;
+    if (save.recent) save.recent[id] = true;
   }
   return fresh;
 }

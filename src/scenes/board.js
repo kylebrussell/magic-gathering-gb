@@ -5,7 +5,7 @@
 import { C } from '../gfx/palette.js';
 import { drawText, drawTextRight, drawTextCenter, drawTextOutline } from '../gfx/font.js';
 import { icon, miniCard, watermark, lifeDie } from '../gfx/sprites.js';
-import { cardDef } from '../engine/game.js';
+import { cardDef, stats } from '../engine/game.js';
 import { cardColor } from '../data/cards.js';
 import { fill } from '../gfx/draw.js';
 
@@ -125,8 +125,17 @@ export function drawBoard(ctx, g, snap, human, slots, opts = {}) {
     if (s.land) {
       ctx.drawImage(landMini(ck, s.tapped), s.x, s.y);
     } else {
-      const kind = d.type.includes('Creature') ? null : 'other';
-      ctx.drawImage(miniCard(ck, s.tapped, { kind }), s.x, s.y + dy);
+      const creature = d.type.includes('Creature');
+      const kind = creature ? null : 'other';
+      let flying = false;
+      let sick = false;
+      if (creature) {
+        const st = stats(g, s.iid);
+        flying = st.kw.has('flying');
+        // hatch your own summoning-sick creatures (the opponent's can still block)
+        sick = s.p === human && g.cards[s.iid].sick && !st.kw.has('haste');
+      }
+      ctx.drawImage(miniCard(ck, s.tapped, { kind, flying, sick }), s.x, s.y + dy);
       // aura marker
       const enchanted = snap.bf.some(([, , , att]) => att === s.iid);
       if (enchanted) {

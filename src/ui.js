@@ -8,6 +8,12 @@ import { sfx } from './audio.js';
 
 export const TEXT_SPEED = { slow: 1, normal: 2, fast: 4 };
 
+// Default typing speed for every new TextBox (set from the save's options).
+export const TEXT = { speed: 2 };
+export function setTextSpeed(n) {
+  TEXT.speed = n || 2;
+}
+
 export class TextBox {
   constructor(app) {
     this.app = app;
@@ -16,10 +22,18 @@ export class TextBox {
     this.shown = 0;
     this.arrow = false;
     this.menu = null;
-    this.speed = 2;
+    this._speed = null; // null = follow the TEXT setting
     this.custom = null;
     this.rect = { x: 0, y: 96, w: 160, h: 48 };
     this.label = null; // little title in the top border ("ADVENTURER")
+  }
+
+  // Typing speed: the global option unless this box was given its own.
+  get speed() {
+    return this._speed ?? TEXT.speed;
+  }
+  set speed(v) {
+    this._speed = v;
   }
 
   clear() {
@@ -105,6 +119,13 @@ export class TextBox {
       if (b === 'a') {
         if (items[cur].disabled) {
           sfx('error');
+          if (opts.onDisabled) {
+            // explain why, then put the menu back
+            const saved = this.menu;
+            await opts.onDisabled(items[cur], cur);
+            this.mode = 'menu';
+            this.menu = saved;
+          }
           continue;
         }
         sfx('select');

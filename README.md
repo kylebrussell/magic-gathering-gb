@@ -35,7 +35,10 @@ Gamepads work, and the on-screen buttons work with mouse or touch.
 - **About 158 cards** from Limited Edition, Arabian Nights, Antiquities, Legends, The Dark and Portal, each with procedurally drawn four-color pixel art.
 - **An island to explore**: Tolarian Academy, six color clubs (Forest, Mountain, Island, Plains, Swamp, Artifact) with members and a master, a Card Shop, and the Planeswalker Summit with three Grand Masters and your rival.
 - **Progression**: pick a starter deck, win booster packs and gold, earn the six club medals, and build up to 3 decks (60 cards, at most 4 copies, basic lands free). The game saves to the browser's local storage.
-- A tutorial in the first practice duel, a How to Play guide on the START menu, and chiptune music and sound effects.
+- **A teaching duel**: Jhoira's first practice duel has fixed hands and walks you through one action at a time (land, creature, attack, block, an instant in response), then lets you finish the duel on your own.
+- **Deck Grimoire**: the editor filters by NEW, DECK, FIT (the deck's colors), color, artifacts and lands, and the RECIPE machine copies famous deck lists. Club medals unlock the members' recipes, six medals unlock the masters'. Missing cards show where to get them.
+- Greyed-out PLAY/CAST options explain why, the battlefield cursor shows power, toughness and status, and IN PLAY lists everything on the board. Attacks and blocks are confirmed before they happen.
+- A How to Play guide on the START menu, options for text speed and quick duels, and chiptune music and sound effects.
 
 ## Project layout
 
@@ -62,6 +65,8 @@ node tools/harness.mjs                # headless Chrome + HTTP control API
 ```
 
 Debug URLs: `?duel=<deck>&deck=<deck>&fast=1` starts a quick duel, `&auto=6` lets the AI play both sides at 6× speed, and `&setup=hand:fireball;bf:mountain*5;opp:grizzly_bears` sets up a board.
+
+The teaching duel's script lives in `src/data/lesson.js` and is played through the engine by `test/lesson.test.js` for every starter deck.
 
 ## Credits
 

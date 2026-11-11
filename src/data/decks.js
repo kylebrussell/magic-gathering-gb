@@ -45,7 +45,7 @@ export const DECKS = {
     name: 'Practice Deck',
     cards: {
       plains: 12, forest: 12,
-      savannah_lions: 3, pikemen: 3, pearled_unicorn: 4, mesa_pegasus: 3, grizzly_bears: 4, scryb_sprites: 3,
+      savannah_lions: 3, pikemen: 2, llanowar_elves: 2, pearled_unicorn: 4, mesa_pegasus: 3, grizzly_bears: 4, scryb_sprites: 2,
       war_mammoth: 3, ironroot_treefolk: 3, wall_of_wood: 2, giant_growth: 3, healing_salve: 2, stream_of_life: 1, giant_spider: 2,
     },
   },

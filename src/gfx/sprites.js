@@ -158,7 +158,7 @@ export function miniCard(colorKey, tapped, opts = {}) {
   const cc = CARD_COLORS[colorKey] || CARD_COLORS.A;
   const w = tapped ? 10 : 8;
   const h = tapped ? 8 : 10;
-  const key = `mini|${colorKey}|${tapped}|${opts.dim ? 1 : 0}|${opts.kind || ''}`;
+  const key = `mini|${colorKey}|${tapped}|${opts.dim ? 1 : 0}|${opts.kind || ''}|${opts.flying ? 1 : 0}|${opts.sick ? 1 : 0}`;
   let c = cache.get(key);
   if (c) return c;
   c = document.createElement('canvas');
@@ -178,9 +178,26 @@ export function miniCard(colorKey, tapped, opts = {}) {
     x.fillRect(2, h / 2 - 1, w - 4, 2);
   } else {
     x.fillRect(2, 2, w - 4, h - 4);
+    if (opts.sick) {
+      // summoning sick: a hatched face instead of a clean white one
+      x.fillStyle = cc.light;
+      for (let py = 2; py < h - 2; py++) for (let px = 2; px < w - 2; px++) if ((px + py) % 2) x.fillRect(px, py, 1, 1);
+    }
     x.fillStyle = cc.dark;
-    if (tapped) x.fillRect(3, 3, 1, h - 6);
-    else x.fillRect(3, 3, 1, h - 6);
+    x.fillRect(3, 3, 1, h - 6);
+    if (opts.flying) {
+      // a little pair of wings on the face
+      x.fillStyle = C.ink;
+      if (tapped) {
+        x.fillRect(5, 2, 1, 1);
+        x.fillRect(7, 2, 1, 1);
+        x.fillRect(6, 3, 1, 1);
+      } else {
+        x.fillRect(4, 4, 1, 1);
+        x.fillRect(6, 4, 1, 1);
+        x.fillRect(5, 5, 1, 1);
+      }
+    }
   }
   cache.set(key, c);
   return c;

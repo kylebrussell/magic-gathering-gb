@@ -114,19 +114,33 @@ export function newGame({ players, seed = 1, startingLife = 20, first = null }) 
       player.library.push(iid);
     }
     shuffle(g, player.library);
+    // A scripted opening (the teaching duel): put these card ids on top, in
+    // order, so the opening hand and the first draws are known.
+    if (pl.top && pl.top.length) {
+      const rest = [...player.library];
+      const top = [];
+      for (const id of pl.top) {
+        const i = rest.findIndex((iid) => g.cards[iid].id === id);
+        if (i < 0) throw new Error(`Deck has no spare ${id} to stack on top`);
+        top.push(rest.splice(i, 1)[0]);
+      }
+      player.library = [...top, ...rest];
+    }
   });
 
-  // "WHO PLAYS FIRST?" — both roll a d6, reroll ties.
-  if (first == null) {
-    for (;;) {
-      const a = 1 + randInt(g, 6);
-      const b = 1 + randInt(g, 6);
-      g.dice.push([a, b]);
-      if (a !== b) {
-        first = a > b ? 0 : 1;
-        break;
-      }
+  // "WHO PLAYS FIRST?" — both roll a d6, reroll ties. When the first player
+  // is dictated, still roll dice that agree with it, for the intro animation.
+  for (;;) {
+    const a = 1 + randInt(g, 6);
+    const b = 1 + randInt(g, 6);
+    g.dice.push([a, b]);
+    if (a === b) continue;
+    const winner = a > b ? 0 : 1;
+    if (first == null || first === winner) {
+      first = winner;
+      break;
     }
+    g.dice.pop();
   }
   g.first = first;
   g.active = first;

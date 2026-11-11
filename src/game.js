@@ -7,12 +7,13 @@ import { DuelScene } from './scenes/duel.js';
 import { StartMenu, StatusScene, HelpScene, OptionsScene, NameEntry, BoosterScene, openPacks, MedalScene, ShopScene, StarterScene, DeckSlots, AlbumScene, CreditsScene } from './scenes/menus.js';
 import { newSave, loadSave, writeSave, hasSave, eraseSave, addCards, activeDeckList, deckProblem } from './save.js';
 import { DECKS, STARTERS, expandDeck } from './data/decks.js';
+import { lessonTop } from './data/lesson.js';
 import { NPCS, LOCATIONS } from './data/world.js';
 import { CARDS } from './data/cards.js';
 import { C } from './gfx/palette.js';
 import { fill, popupCard, typeLabel } from './gfx/draw.js';
 import { cardArt } from './gfx/art.js';
-import { TextBox } from './ui.js';
+import { TextBox, setTextSpeed } from './ui.js';
 import { audioSettings, playMusic, sfx } from './audio.js';
 
 class GiftScene {
@@ -40,6 +41,7 @@ export class Game {
     this.app = app;
     this.save = save;
     audioSettings({ music: save.settings.music, sfx: save.settings.sfx });
+    setTextSpeed(save.settings.textSpeed);
     this.tick = () => {
       this.save.playTime = (this.save.playTime || 0) + 1 / 60;
     };
@@ -108,7 +110,7 @@ export class Game {
     await room.say(
       [
         `YOU RECEIVED THE ${deck.name.toUpperCase()} DECK!`,
-        'JHOIRA, MY APPRENTICE, WILL GIVE YOU A PRACTICE DUEL. TALK TO HER.',
+        'JHOIRA, MY APPRENTICE, WILL TEACH YOU HOW TO DUEL. TALK TO HER.',
         'PRESS START ANY TIME TO EDIT YOUR DECKS, VIEW YOUR ALBUM OR SAVE.',
         'WHEN YOU ARE READY, LEAVE BY THE DOOR TO EXPLORE THE ISLAND. GOOD LUCK!',
       ],
@@ -194,9 +196,13 @@ export class Game {
     const s = this.save;
     const d = npc.def;
     await this.app.fadeOut(12);
+    // Jhoira's first duel is the teaching duel. It is played with the starter
+    // deck as given, because the lesson stacks specific cards.
+    const lesson = npc.id === 'jhoira' && !s.flags.lesson && STARTERS[s.flags.starter] ? { starter: s.flags.starter, top: lessonTop(s.flags.starter) } : null;
+    if (lesson) s.flags.lesson = true;
     const res = await this.app.run(
       new DuelScene({
-        player: { name: s.name, portrait: 'adventurer', deck: activeDeckList(s) },
+        player: { name: s.name, portrait: 'adventurer', deck: lesson ? expandDeck(STARTERS[lesson.starter].cards) : activeDeckList(s) },
         opponent: {
           name: d.name,
           fullName: d.fullName || d.name,
@@ -207,11 +213,13 @@ export class Game {
           music: d.music,
         },
         textSpeed: s.settings.textSpeed,
-        tutorial: npc.id === 'jhoira' && !s.beaten.jhoira,
+        quick: !!s.settings.quickDuels,
+        lesson,
       }),
     );
     return res;
   }
+
 
   // Apply a win's rewards to the save immediately; returns what to present.
   applyReward(npc, first) {

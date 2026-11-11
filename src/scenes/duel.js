@@ -16,6 +16,8 @@ import { TextBox } from '../ui.js';
 import { CardList, CardDetail } from './cardscreens.js';
 import { layoutBoard, drawBoard, moveCursor } from './board.js';
 import { playMusic, sfx } from '../audio.js';
+import { KEYWORD_SHORT } from '../data/cards.js';
+import { lessonSteps, plannedAction, LESSON_OPP } from '../data/lesson.js';
 
 const PHASES = [
   { step: 'upkeep', icon: 'phaseUntap', label: 'BEGINNING PHASE.' },
@@ -79,13 +81,17 @@ export class DuelScene {
     this.app = app;
     const { player, opponent, seed } = this.opts;
     this.box = new TextBox(app);
-    this.box.speed = this.opts.textSpeed || 2;
+    if (this.opts.textSpeed) this.box.speed = this.opts.textSpeed;
+    // the teaching duel: scripted hands, Jhoira follows a plan, you follow steps
+    const lesson = this.opts.lesson;
+    this.lesson = lesson ? { steps: lessonSteps(lesson.starter), i: 0, told: new Set(), plan: LESSON_OPP.plan, lastTurn: LESSON_OPP.lastTurn } : null;
+    if (this.lesson && !this.lesson.steps.length) this.lesson = null;
     this.game = E.newGame({
       seed: seed ?? (Math.random() * 2 ** 32) >>> 0,
-      first: this.opts.first ?? null,
+      first: this.lesson ? this.human : this.opts.first ?? null,
       players: [
-        { name: player.name, deck: player.deck },
-        { name: opponent.name, deck: opponent.deck },
+        { name: player.name, deck: player.deck, top: this.lesson ? lesson.top : player.top },
+        { name: opponent.name, deck: opponent.deck, top: this.lesson ? LESSON_OPP.top : opponent.top },
       ],
     });
     this.game.record = true;
@@ -94,9 +100,74 @@ export class DuelScene {
     // hide the opening hands until the draw animation
     this.introCounts = { hand: [0, 0], lib: [player.deck.length, opponent.deck.length] };
     playMusic(opponent.music || 'duel');
-    await this.intro();
-    await this.loop();
-    return await this.outro();
+    // "quick duels" option: everything timed waits half as long
+    const speed = app.speed;
+    if (this.opts.quick) app.speed = Math.max(speed, 2);
+    try {
+      await this.intro();
+      await this.loop();
+      return await this.outro();
+    } finally {
+      app.speed = speed;
+    }
+  }
+
+  // ------------------------------------------------------------------ lesson
+  // The current lesson step, if it applies to this decision.
+  lessonStep(pend) {
+    const L = this.lesson;
+    if (!L) return null;
+    const g = this.g;
+    const st = L.steps[L.i];
+    if (!st) return null;
+    if (g.turn !== st.turn) return null;
+    const me = this.human;
+    const mainEmpty = pend.type === 'priority' && g.active === me && E.isMain(g.step) && g.stack.length === 0;
+    if (st.when === 'main') return mainEmpty ? st : null;
+    if (st.when === 'attackers') return pend.type === 'attackers' ? st : null;
+    if (st.when === 'blockers') return pend.type === 'blockers' ? st : null;
+    if (st.when === 'respond') return pend.type === 'priority' && g.active !== me && g.step === 'attackers' ? st : null;
+    return null;
+  }
+
+  // Explain the step the first time it comes up.
+  async lessonTell(st) {
+    const L = this.lesson;
+    if (L.told.has(st)) return;
+    L.told.add(st);
+    this.mode = 'board';
+    this.box.label = 'JHOIRA';
+    for (const t of st.text) await this.box.say(t, { wait: true });
+    this.box.clear();
+    this.box.label = null;
+  }
+
+  // "Not that, do this" — spoken when the player strays from the step.
+  async lessonNag() {
+    const st = this.expect;
+    if (!st || !st.nag) return;
+    sfx('error');
+    this.box.label = 'JHOIRA';
+    await this.box.say(st.nag, { wait: true });
+    this.box.clear();
+    this.box.label = null;
+  }
+
+  // Does the player's hand action match the step? Returns a reason if not.
+  lessonBlocks(verb, iid) {
+    const st = this.expect;
+    if (!st) return null;
+    const id = E.def(this.g, iid).id;
+    if ((st.type === 'play' || st.type === 'cast') && st.type === verb && id === st.id) return null;
+    return st.nag || 'FOLLOW THE LESSON FOR NOW.';
+  }
+
+  lessonAdvance() {
+    const L = this.lesson;
+    if (!L || !this.expect) return;
+    L.i++;
+    this.expect = null;
+    if (L.i >= L.steps.length) this.lesson = null;
   }
 
   pname(p) {
@@ -206,8 +277,10 @@ export class DuelScene {
         }
         try {
           E.act(g, action);
+          this.lessonAdvance();
         } catch (e) {
           console.warn('Illegal action', action, e);
+          this.expect = null;
           await this.box.say("YOU CAN'T DO THAT NOW.", { hold: 40 });
         }
       } else {
@@ -226,7 +299,7 @@ export class DuelScene {
     const g = this.g;
     const skill = this.opts.opponent.skill ?? 0.8;
     const thinking = (pend.type === 'priority' && g.active !== this.human && E.isMain(g.step) && g.stack.length === 0) || pend.type === 'attackers' || pend.type === 'blockers';
-    const action = decide(g, { skill });
+    const action = this.plannedAction(pend) || decide(g, { skill });
     if (thinking && action.type !== 'pass' && !(pend.type === 'attackers' && !action.attackers?.length) && !(pend.type === 'blockers' && !action.blocks?.length)) {
       this.mode = 'board';
       const name = this.pname(1 - this.human);
@@ -236,6 +309,13 @@ export class DuelScene {
       }
     }
     return action;
+  }
+
+  // Jhoira's scripted turns during the lesson. Returns null to let the AI decide.
+  plannedAction(pend) {
+    const L = this.lesson;
+    if (!L) return null;
+    return plannedAction(this.g, 1 - this.human, L, pend);
   }
 
   // ------------------------------------------------------------------ presentation
@@ -553,31 +633,34 @@ export class DuelScene {
     return g.step === 'attackers' || g.step === 'blockers' || g.step === 'end';
   }
 
-  // One-time tips for the tutorial duel.
-  async tip(key, text) {
-    if (!this.opts.tutorial) return;
-    this.tipsShown = this.tipsShown || new Set();
-    if (this.tipsShown.has(key)) return;
-    this.tipsShown.add(key);
-    await this.box.say(`TIP: ${text}`, { wait: true });
-    this.box.clear();
-  }
-
   async humanDecision(pend) {
     const g = this.g;
     this.mode = 'board';
+    this.expect = null;
     if (this.opts.autoHuman || globalThis.MTG_AUTO) return decide(g, { skill: 1 });
     if (this.skipTurn === g.turn && g.active === this.human) {
       if (pend.type === 'attackers') return { type: 'attack', attackers: [] };
       if (pend.type === 'priority' && g.step === 'main2' && g.stack.length === 0) return { type: 'pass' };
     }
-    if (pend.type === 'priority' && g.active === this.human && E.isMain(g.step) && g.stack.length === 0) {
-      await this.tip('main', 'CHOOSE HAND TO SEE YOUR CARDS. YOU MAY PLAY ONE LAND EACH TURN. LANDS MAKE MANA, AND MANA PAYS FOR SPELLS. YOUR LANDS ARE TAPPED AUTOMATICALLY WHEN YOU CAST.');
-      if (E.creaturesOf(g, this.human).length) await this.tip('battlefield', 'CHOOSE BATTLEFIELD TO LOOK AT EVERY CARD IN PLAY. MOVE THE CURSOR AND PRESS A TO CHECK A CARD.');
+    if (this.lesson) {
+      const st = this.lessonStep(pend);
+      if (st) {
+        await this.lessonTell(st);
+        if (st.type === 'free') {
+          // lesson over: the rest of the duel is unrestricted
+          this.lesson = null;
+        } else this.expect = st;
+      } else if (pend.type === 'mulligan') {
+        // keep the scripted hand (after a look at it)
+        await this.handList({ readOnly: true, prompt: 'YOUR OPENING HAND' });
+        this.mode = 'blank';
+        return { type: 'keep' };
+      } else if (pend.type === 'priority' && !(g.active === this.human && E.isMain(g.step) && g.stack.length === 0)) {
+        // nothing to teach at this moment: let it happen
+        return { type: 'pass' };
+      } else if (pend.type === 'attackers') return { type: 'attack', attackers: g.battlefield.filter((iid) => E.mustAttack(g, iid)) };
+      else if (pend.type === 'blockers') return { type: 'block', blocks: [] };
     }
-    if (pend.type === 'attackers') await this.tip('attack', 'COMBAT! CHOOSE DECLARE ATT., PRESS A ON EACH ATTACKER, THEN B TO ATTACK. SELECT SHOWS A CARD. NEW CREATURES CAN\'T ATTACK UNLESS THEY HAVE HASTE.');
-    if (pend.type === 'blockers') await this.tip('block', 'YOU ARE BEING ATTACKED! PRESS A ON ONE OF YOUR CREATURES, THEN PICK THE ATTACKER IT BLOCKS. PRESS B WHEN DONE. UNBLOCKED ATTACKERS HIT YOUR LIFE.');
-    if (pend.type === 'priority' && this.shouldStop(pend) && !(g.active === this.human && E.isMain(g.step))) await this.tip('respond', 'YOU HAVE AN INSTANT OR ABILITY YOU CAN USE RIGHT NOW. CHOOSE HAND TO CAST IT, OR PASS TO LET THINGS HAPPEN.');
     switch (pend.type) {
       case 'mulligan':
         return this.mulliganMenu();
@@ -625,9 +708,47 @@ export class DuelScene {
     const g = this.g;
     return g.players[this.human].hand.map((iid) => {
       const d = E.def(g, iid);
-      const playable = !readOnly && (d.type.includes('Land') ? E.canPlayLand(g, this.human, iid) : E.canCast(g, this.human, iid));
-      return { def: d, iid, playable };
+      const verb = d.type.includes('Land') ? 'play' : 'cast';
+      let problem = readOnly ? null : this.castProblem(iid);
+      if (!problem && !readOnly) problem = this.lessonBlocks(verb, iid);
+      return { def: d, iid, playable: !readOnly && !problem, problem };
     });
+  }
+
+  // Why can't this card be played right now? null when it can.
+  castProblem(iid) {
+    const g = this.g;
+    const me = this.human;
+    const d = E.def(g, iid);
+    const myMain = g.pending && g.pending.type === 'priority' && g.pending.player === me && g.active === me && E.isMain(g.step) && g.stack.length === 0;
+    if (d.type.includes('Land')) {
+      if (E.canPlayLand(g, me, iid)) return null;
+      if (!myMain) return 'LANDS CAN ONLY BE PLAYED IN YOUR OWN MAIN PHASE.';
+      return 'YOU ALREADY PLAYED A LAND THIS TURN. ONE PER TURN.';
+    }
+    if (E.canCast(g, me, iid)) return null;
+    if (!E.canCastTiming(g, me, iid)) {
+      const kind = d.type.includes('Creature') ? 'CREATURES' : d.type === 'Sorcery' ? 'SORCERIES' : d.type.includes('Enchantment') ? 'ENCHANTMENTS' : d.type.includes('Artifact') ? 'ARTIFACTS' : 'THIS';
+      if (g.active !== me) return `${kind} CAN ONLY BE CAST ON YOUR OWN TURN. INSTANTS CAN BE CAST ANY TIME.`;
+      if (g.stack.length) return `${kind} CAN'T BE CAST WHILE A SPELL IS WAITING TO RESOLVE.`;
+      return `${kind} CAN ONLY BE CAST IN YOUR MAIN PHASE.`;
+    }
+    if (d.canCast && !d.canCast(g, me, iid)) return "ITS CONDITIONS AREN'T MET RIGHT NOW.";
+    const cost = parseCost(d.cost);
+    const minX = cost.X ? d.minX ?? 1 : 0;
+    const costStr = cost.X ? d.cost.replace('X', String(minX)) : d.cost;
+    if (!E.canPay(g, me, costStr)) {
+      const sources = E.manaSources(g, me);
+      const pool = g.players[me].pool;
+      const open = sources.reduce((n, s) => n + s.amount, 0) + Object.values(pool).reduce((a, b) => a + b, 0);
+      const need = manaValue(costStr);
+      if (open < need) return `NOT ENOUGH MANA. IT COSTS ${manaSymbols(d.cost) || '{0}'}, AND YOU HAVE ${open} MANA UNTAPPED.`;
+      const colors = [...new Set((d.cost || '').replace(/[0-9X]/g, '').split(''))].map((c) => `{${c}}`).join('');
+      return `WRONG COLORS. IT NEEDS ${colors} MANA, AND YOUR OPEN LANDS CAN'T MAKE IT.`;
+    }
+    const ctx = { src: iid, controller: me };
+    if (!E.spellSpecs(d).every((spec) => E.legalTargets(g, spec, ctx).length > 0)) return 'THERE IS NO LEGAL TARGET FOR IT RIGHT NOW.';
+    return "YOU CAN'T CAST THAT RIGHT NOW.";
   }
 
   // Returns an action, or null if the player backed out.
@@ -649,6 +770,13 @@ export class DuelScene {
           if (readOnly) return ['CHECK', 'BACK'];
           const verb = it.def.type.includes('Land') ? 'PLAY' : 'CAST';
           return ['CHECK', 'BACK', { label: verb, disabled: !it.playable }];
+        },
+        // A on a greyed-out PLAY/CAST explains why it's unavailable
+        onDisabled: async (it, list) => {
+          if (!it.problem) return;
+          list.box.rect = { x: 0, y: 96, w: 160, h: 48 };
+          await list.box.say(it.problem, { wait: true });
+          list.box.rect = { x: 0, y: 96, w: 96, h: 48 };
         },
         handle: async (it, label, idx) => {
           start = idx;
@@ -673,19 +801,30 @@ export class DuelScene {
       const g = this.g;
       const main1 = g.step === 'main1';
       this.box.label = main1 ? 'MAIN PHASE 1' : 'MAIN PHASE 2';
-      const opts = main1 ? ['HAND', 'BATTLEFIELD', 'TO COMBAT', 'END TURN', 'CONCEDE'] : ['HAND', 'BATTLEFIELD', 'END TURN', 'CONCEDE'];
+      const opts = main1 ? ['HAND', 'BATTLEFIELD', 'TO COMBAT', 'END TURN', 'IN PLAY', 'CONCEDE'] : ['HAND', 'BATTLEFIELD', 'END TURN', 'IN PLAY', 'CONCEDE'];
       const i = await this.box.choose(opts, { cols: 2, cancel: false });
       this.box.label = null;
       const pick = opts[i];
+      const st = this.expect;
       if (pick === 'HAND') {
         const a = await this.handList();
         if (a) return a;
       } else if (pick === 'BATTLEFIELD') {
         const a = await this.battlefieldMenu();
         if (a) return a;
+      } else if (pick === 'IN PLAY') {
+        await this.inPlayList();
       } else if (pick === 'TO COMBAT') {
+        if (st && st.type !== 'combat') {
+          await this.lessonNag();
+          continue;
+        }
         return { type: 'pass' };
       } else if (pick === 'END TURN') {
+        if (st && st.type !== 'end') {
+          await this.lessonNag();
+          continue;
+        }
         // skip combat and main 2 this turn
         if (main1) this.skipTurn = g.turn;
         return { type: 'pass' };
@@ -693,6 +832,55 @@ export class DuelScene {
         if (await this.confirm('REALLY CONCEDE THE DUEL?')) return { type: 'concede' };
       }
     }
+  }
+
+  // Every permanent, as a list with power/toughness and status.
+  async inPlayList() {
+    const g = this.g;
+    const items = [];
+    for (const p of [this.human, 1 - this.human]) {
+      const mine = p === this.human;
+      const perms = g.battlefield.filter((iid) => g.cards[iid].controller === p && !E.isLand(g, iid));
+      perms.sort((a, b) => Number(E.isCreature(g, b)) - Number(E.isCreature(g, a)));
+      for (const iid of perms) {
+        const status = this.statusTags(iid);
+        const st = E.isCreature(g, iid) ? E.stats(g, iid) : null;
+        const right = (st ? `${st.power}/${st.toughness} ` : '') + status.slice(0, 2).join(' ');
+        items.push({ def: E.def(g, iid), live: st, iid, right: right.trim(), tag: mine ? null : '▼', hideCost: true, dim: !mine });
+      }
+    }
+    await this.app.run(
+      new CardList({
+        title: 'IN PLAY',
+        items,
+        prompt: 'YOURS, THEN THEIRS',
+        emptyText: 'NOTHING IN PLAY.',
+        actions: () => ['CHECK', 'BACK'],
+      }),
+    );
+    this.mode = 'board';
+  }
+
+  // Short status words for a permanent: FLY, 1ST, SICK, TAP, ATK, BLK, +1/+1...
+  statusTags(iid) {
+    const g = this.g;
+    const c = g.cards[iid];
+    const tags = [];
+    if (c.zone !== 'battlefield') return tags;
+    const creature = E.isCreature(g, iid);
+    const st = creature ? E.stats(g, iid) : null;
+    if (c.tapped) tags.push('TAP');
+    if (creature && c.sick && !st.kw.has('haste')) tags.push('SICK');
+    if (g.combat && g.combat.attackers.includes(iid)) tags.push('ATK');
+    if (g.combat && g.combat.blocks.some(([b]) => b === iid)) tags.push('BLK');
+    if (st) for (const k of st.kw) if (KEYWORD_SHORT[k]) tags.push(KEYWORD_SHORT[k]);
+    if (creature && c.damage) tags.push(`-${c.damage}`);
+    if (creature) {
+      const bonus = c.mods.reduce((a, m) => ({ p: a.p + (m.p || 0), t: a.t + (m.t || 0) }), { p: c.counters, t: c.counters });
+      if (bonus.p || bonus.t) tags.push(`${bonus.p >= 0 ? '+' : ''}${bonus.p}/${bonus.t >= 0 ? '+' : ''}${bonus.t}`);
+    }
+    if (c.regen) tags.push('RGN');
+    return tags;
   }
 
   async respondMenu() {
@@ -704,14 +892,20 @@ export class DuelScene {
     else if (g.step === 'end') prompt = 'END OF TURN.';
     for (;;) {
       this.mode = 'board';
-      const i = await this.box.choose(['HAND', 'BATTLE', 'PASS'], { cols: 3, prompt, colWidth: 46, cancel: false, start: 2 });
+      const i = await this.box.choose(['HAND', 'BATTLE', 'PASS'], { cols: 3, prompt, colWidth: 46, cancel: false, start: this.expect ? 0 : 2 });
       if (i === 0) {
         const a = await this.handList();
         if (a) return a;
       } else if (i === 1) {
         const a = await this.battlefieldMenu();
         if (a) return a;
-      } else return { type: 'pass' };
+      } else {
+        if (this.expect) {
+          await this.lessonNag();
+          continue;
+        }
+        return { type: 'pass' };
+      }
     }
   }
 
@@ -731,7 +925,11 @@ export class DuelScene {
       this.cursor = cur;
       const name = hint || this.slotName(cur, 80);
       this.box.mode = 'msg';
-      this.box.lines = [prompt, name];
+      // third line: the permanent's status (flying, summoning sick, tapped...)
+      const status = cur.kind === 'perm' ? this.statusTags(cur.iid).join(' ') : '';
+      let shown = status;
+      while (shown.length > 3 && measure(shown) > 80) shown = shown.slice(0, -1);
+      this.box.lines = [prompt, name, shown];
       this.box.shown = 999;
       this.hoverArt = this.slotArt(cur);
     };
@@ -917,7 +1115,13 @@ export class DuelScene {
       );
     }
     const slots = layoutBoard(g, this.snap, this.human);
-    const candidates = slots.filter((s) => legal.some((t) => (t.p !== undefined ? s.kind === 'player' && s.p === t.p : s.kind === 'perm' && s.iid === t.c)));
+    let candidates = slots.filter((s) => legal.some((t) => (t.p !== undefined ? s.kind === 'player' && s.p === t.p : s.kind === 'perm' && s.iid === t.c)));
+    // the lesson points at one target
+    const st = this.expect;
+    if (st && st.target) {
+      const wanted = candidates.filter((s) => s.kind === 'perm' && s.p !== this.human && E.def(g, s.iid).id === st.target);
+      if (wanted.length) candidates = wanted;
+    }
     // default: an opponent's thing for harmful spells
     const theirs = candidates.find((s) => s.p !== this.human);
     return this.boardCursor({
@@ -985,14 +1189,19 @@ export class DuelScene {
     for (;;) {
       this.mode = 'board';
       this.box.label = 'COMBAT PHASE';
-      const i = await this.box.choose(['HAND', 'BATTLEFIELD', 'DECLARE ATT.', 'NO ATTACK', 'CONCEDE'], { cols: 2, cancel: false, start: 2 });
+      const i = await this.box.choose(['HAND', 'BATTLEFIELD', 'DECLARE ATT.', 'NO ATTACK', 'IN PLAY', 'CONCEDE'], { cols: 2, cancel: false, start: 2 });
       this.box.label = null;
       if (i === 0) await this.handList({ readOnly: true });
       else if (i === 1) await this.battlefieldMenu();
+      else if (i === 4) await this.inPlayList();
       else if (i === 3) {
+        if (this.expect) {
+          await this.lessonNag();
+          continue;
+        }
         const forced = g.battlefield.filter((iid) => E.mustAttack(g, iid));
         return { type: 'attack', attackers: forced };
-      } else if (i === 4) {
+      } else if (i === 5) {
         if (await this.confirm('REALLY CONCEDE THE DUEL?')) return { type: 'concede' };
       } else {
         const chosen = await this.declareAttackers();
@@ -1003,28 +1212,53 @@ export class DuelScene {
 
   async declareAttackers() {
     const g = this.g;
+    const st = this.expect;
     const slots = layoutBoard(g, this.snap, this.human);
-    const able = slots.filter((s) => s.kind === 'perm' && E.canAttack(g, s.iid));
+    let able = slots.filter((s) => s.kind === 'perm' && E.canAttack(g, s.iid));
+    if (st && st.ids) able = able.filter((s) => st.ids.includes(E.def(g, s.iid).id));
     const chosen = new Set(able.filter((s) => E.mustAttack(g, s.iid)).map((s) => s.iid));
     const sync = () => {
       this.marks.clear();
       for (const iid of chosen) this.marks.set(iid, 'attack');
     };
     sync();
-    await this.boardCursor({
-      candidates: able,
-      prompt: 'A:ATTACK B:DONE',
-      onPick: async (slot) => {
-        if (chosen.has(slot.iid) && !E.mustAttack(g, slot.iid)) chosen.delete(slot.iid);
-        else chosen.add(slot.iid);
-        sfx(chosen.has(slot.iid) ? 'attack' : 'back');
-        sync();
-        return undefined;
-      },
-    });
-    // B finishes; with nobody chosen it just goes back to the combat menu
+    for (;;) {
+      await this.boardCursor({
+        candidates: able,
+        prompt: 'A:PICK B:DONE',
+        onPick: async (slot) => {
+          if (chosen.has(slot.iid) && !E.mustAttack(g, slot.iid)) chosen.delete(slot.iid);
+          else chosen.add(slot.iid);
+          sfx(chosen.has(slot.iid) ? 'attack' : 'back');
+          sync();
+          return undefined;
+        },
+      });
+      // B: with nobody chosen it goes back to the combat menu, otherwise confirm
+      if (!chosen.size) {
+        if (st) {
+          await this.lessonNag();
+          continue;
+        }
+        this.marks.clear();
+        return null;
+      }
+      if (st && st.ids) {
+        const ids = [...chosen].map((iid) => E.def(g, iid).id).sort();
+        if (ids.join() !== [...st.ids].sort().join()) {
+          await this.lessonNag();
+          continue;
+        }
+      }
+      const n = chosen.size;
+      const names = [...chosen].map((iid) => cardName(g, iid));
+      let what = n === 1 ? names[0] : `${n} CREATURES`;
+      if (measure(`ATTACK WITH ${what}?`) > 144) what = n === 1 ? 'THIS CREATURE' : `${n} CREATURES`;
+      const ok = await this.box.choose(['YES', 'NO'], { cols: 2, prompt: `ATTACK WITH ${what}?` });
+      this.box.clear();
+      if (ok === 0) break;
+    }
     this.marks.clear();
-    if (!chosen.size) return null;
     return [...chosen];
   }
 
@@ -1041,7 +1275,8 @@ export class DuelScene {
       this.snap = { ...this.snap, combat: { attackers: [...attackers], blocks: [...blocks.entries()] } };
     };
     sync();
-    await this.say(`${this.pname(1 - this.human)} IS ATTACKING! DECLARE BLOCKERS. PRESS B WHEN DONE.`, { hold: 10 });
+    const st = this.expect;
+    if (!st) await this.say(`${this.pname(1 - this.human)} IS ATTACKING! DECLARE BLOCKERS. PRESS B WHEN DONE.`, { hold: 10 });
     for (;;) {
       await this.boardCursor({
         candidates: mine,
@@ -1066,9 +1301,26 @@ export class DuelScene {
           return undefined;
         },
       });
-      if (blocks.size) break;
-      const i = await this.box.choose(['YES', 'NO'], { cols: 2, prompt: "DON'T BLOCK AT ALL?", start: 1 });
-      if (i === 0) break;
+      if (st && st.blocks) {
+        const got = [...blocks.entries()].map(([b, a]) => `${E.def(g, b).id}>${E.def(g, a).id}`).sort();
+        const want = st.blocks.map(([b, a]) => `${b}>${a}`).sort();
+        if (got.join() !== want.join()) {
+          await this.lessonNag();
+          continue;
+        }
+      }
+      if (blocks.size) {
+        const n = blocks.size;
+        let what = n === 1 ? cardName(g, [...blocks.keys()][0]) : `${n} CREATURES`;
+        if (measure(`BLOCK WITH ${what}?`) > 144) what = n === 1 ? 'THIS CREATURE' : `${n} CREATURES`;
+        const i = await this.box.choose(['YES', 'NO'], { cols: 2, prompt: `BLOCK WITH ${what}?` });
+        this.box.clear();
+        if (i === 0) break;
+      } else {
+        const i = await this.box.choose(['YES', 'NO'], { cols: 2, prompt: "DON'T BLOCK AT ALL?", start: 1 });
+        this.box.clear();
+        if (i === 0) break;
+      }
     }
     this.marks.clear();
     return { type: 'block', blocks: [...blocks.entries()] };

@@ -118,6 +118,7 @@ export class CardList {
     this.headerRight = opts.headerRight || null;
     this.extraKeys = opts.extraKeys || null; // async (button, item, i) → result|undefined
     this.emptyText = opts.emptyText || 'NO CARDS.';
+    this.onDisabled = opts.onDisabled || null; // async (item, list) when A hits a greyed-out action
   }
 
   async run(app) {
@@ -156,7 +157,12 @@ export class CardList {
         const opts = acts.map((a) => (typeof a === 'string' ? { label: a } : a));
         // start on the main action (CAST / PLAY / TARGET...) when it's available
         const main = opts.findIndex((o, k) => k >= 2 && !o.disabled);
-        const choice = await this.box.choose(opts, { cols: 2, colWidth: 38, start: main >= 0 ? main : 0 });
+        const choice = await this.box.choose(opts, {
+          cols: 2,
+          colWidth: 38,
+          start: main >= 0 ? main : 0,
+          onDisabled: this.onDisabled ? async () => this.onDisabled(item, this) : null,
+        });
         if (choice < 0) continue;
         const label = typeof acts[choice] === 'string' ? acts[choice] : acts[choice].label;
         if (label === 'BACK') continue;
@@ -200,7 +206,9 @@ export class CardList {
       const name = (it.label || d.name).toUpperCase();
       const color = it.dim ? C.grey : C.ink;
       let x = 27;
-      const maxW = this.items.some((x) => x.right) ? 92 : 120;
+      // leave room for the widest right-hand column
+      const rightW = Math.max(0, ...this.items.map((o) => (o.right ? measure(o.right) : 0)));
+      const maxW = Math.min(120, 148 - 27 - (rightW ? rightW + 6 : 0));
       let shown = name;
       while (measure(shown) > maxW && shown.length > 3) shown = shown.slice(0, -1);
       x += drawText(ctx, shown, x, y, color) + 3;
@@ -213,6 +221,7 @@ export class CardList {
     if (this.top + this.rows < n) ctx.drawImage(icon('arrowDown'), 78, 89);
     if (this.top > 0) ctx.drawImage(icon('arrowUp'), 78, 13);
     if (this.box) this.box.draw(ctx);
+    if (this.box && this.box.rect.w >= 160) return; // a full-width message covers the art
     const it = this.items[this.cur];
     fill(ctx, C.bg, 96, 96, 64, 48);
     if (it && it.unknown) {
